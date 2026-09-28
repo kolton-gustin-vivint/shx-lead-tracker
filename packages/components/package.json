@@ -1,0 +1,7 @@
+{
+  "name": "@project/components",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Shared shadcn/ui components. Dependencies are provided by the root package."
+}

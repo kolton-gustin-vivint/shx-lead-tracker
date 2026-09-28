@@ -1,0 +1,252 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Backfilled during migration to 2.0 */
+    --font-serif: ui-serif;
+
+    /* Auto-restored theme variables */
+    --shadow-2xs: 0 1px rgb(0 0 0 / 0.05);
+    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+
+    /* Core colors — Polished light theme with richer green */
+    --background: 220 14% 94%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 145 50% 38%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 24 95% 53%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 220 14% 89%;
+    --muted-foreground: 220 9% 40%;
+    --accent: 202 95% 46%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 82%;
+    --input: 220 13% 82%;
+    --ring: 145 50% 38%;
+    
+    /* Dark header — deep forest green */
+    --header-bg: 150 35% 14%;
+    --header-foreground: 145 20% 95%;
+    --header-muted: 145 12% 55%;
+    --header-border: 150 25% 22%;
+    
+    /* Chart colors */
+    --chart-1: 145 50% 38%;
+    --chart-2: 199 89% 48%;
+    --chart-3: 0 84% 60%;
+    --chart-4: 271 81% 56%;
+    --chart-5: 340 75% 55%;
+    
+    /* Font families */
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'Courier New', monospace;
+    
+    /* Border radius */
+    --radius: 0.5rem;
+    
+    /* Shadow variables */
+    --shadow-x: 0px;
+    --shadow-y: 1px;
+    --shadow-blur: 4px;
+    --shadow-spread: 0px;
+    --shadow-opacity: 0.07;
+    --shadow-color: #000000;
+    
+    /* Sidebar colors */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 145 50% 38%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 94%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 220 13% 82%;
+    --sidebar-ring: 145 50% 38%;
+    
+    /* Status badge colors */
+    --status-new: 217 91% 60%;
+    --status-new-foreground: 0 0% 100%;
+    --status-new-bg: 217 91% 60%;
+    
+    --status-progress: 38 92% 50%;
+    --status-progress-foreground: 0 0% 100%;
+    --status-progress-bg: 38 92% 50%;
+    
+    --status-followup: 25 95% 53%;
+    --status-followup-foreground: 0 0% 100%;
+    --status-followup-bg: 25 95% 53%;
+    
+    --status-appointment: 271 81% 56%;
+    --status-appointment-foreground: 0 0% 100%;
+    --status-appointment-bg: 271 81% 56%;
+    
+    --status-success: 142 76% 36%;
+    --status-success-foreground: 0 0% 100%;
+    --status-success-bg: 142 76% 36%;
+    
+    --status-closed: 0 72% 51%;
+    --status-closed-foreground: 0 0% 100%;
+    --status-closed-bg: 0 72% 51%;
+    
+    --status-default: 215 16% 47%;
+    --status-default-foreground: 0 0% 100%;
+    --status-default-bg: 215 16% 47%;
+
+    /* Warning colors (amber) */
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --warning-bg: 38 92% 95%;
+    --warning-border: 38 92% 75%;
+    --warning-text: 38 80% 30%;
+  }
+
+  .dark {
+    /* Match light theme so the auth pages look consistent */
+    --background: 220 14% 94%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 145 50% 38%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 24 95% 53%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 220 14% 89%;
+    --muted-foreground: 220 9% 40%;
+    --accent: 202 95% 46%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 82%;
+    --input: 220 13% 82%;
+    --ring: 145 50% 38%;
+    --chart-1: 145 50% 38%;
+    --chart-2: 199 89% 48%;
+    --chart-3: 0 84% 60%;
+    --chart-4: 271 81% 56%;
+    --chart-5: 340 75% 55%;
+    
+    --header-bg: 150 35% 14%;
+    --header-foreground: 145 20% 95%;
+    --header-muted: 145 12% 55%;
+    --header-border: 150 25% 22%;
+    
+    /* Sidebar colors (dark mode) */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 145 50% 38%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 94%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 220 13% 82%;
+    --sidebar-ring: 145 50% 38%;
+
+    --warning-bg: 38 92% 95%;
+    --warning-border: 38 92% 75%;
+    --warning-text: 38 80% 30%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+@layer utilities {
+  /* Custom gradient utilities using primary colors */
+  .gradient-primary {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(168, 100%, 48%) 50%, hsl(168, 100%, 35%) 100%);
+  }
+  
+  .gradient-subtle {
+    background: linear-gradient(135deg, hsl(168, 100%, 95%) 0%, hsl(190.1, 100%, 95%) 50%, hsl(359.6, 100%, 95%) 100%);
+  }
+  
+  /* Premium shadow effect */
+  .shadow-premium {
+    box-shadow: 
+      0 1px 3px 0 hsl(var(--foreground) / 0.06),
+      0 1px 2px -1px hsl(var(--foreground) / 0.04);
+  }
+
+  .shadow-premium-lg {
+    box-shadow: 
+      0 4px 6px -1px hsl(var(--foreground) / 0.07),
+      0 2px 4px -2px hsl(var(--foreground) / 0.04);
+  }
+  
+  /* Status badge utilities */
+  .badge-status-new {
+    @apply bg-[hsl(var(--status-new-bg))] text-[hsl(var(--status-new-foreground))] border-[hsl(var(--status-new))];
+  }
+  
+  .badge-status-progress {
+    @apply bg-[hsl(var(--status-progress-bg))] text-[hsl(var(--status-progress-foreground))] border-[hsl(var(--status-progress))];
+  }
+  
+  .badge-status-followup {
+    @apply bg-[hsl(var(--status-followup-bg))] text-[hsl(var(--status-followup-foreground))] border-[hsl(var(--status-followup))];
+  }
+  
+  .badge-status-appointment {
+    @apply bg-[hsl(var(--status-appointment-bg))] text-[hsl(var(--status-appointment-foreground))] border-[hsl(var(--status-appointment))];
+  }
+  
+  .badge-status-success {
+    @apply bg-[hsl(var(--status-success-bg))] text-[hsl(var(--status-success-foreground))] border-[hsl(var(--status-success))];
+  }
+  
+  .badge-status-closed {
+    @apply bg-[hsl(var(--status-closed-bg))] text-[hsl(var(--status-closed-foreground))] border-[hsl(var(--status-closed))];
+  }
+  
+  .badge-status-default {
+    @apply bg-[hsl(var(--status-default-bg))] text-[hsl(var(--status-default-foreground))] border-[hsl(var(--status-default))];
+  }
+  
+  /* Button inactive state using semantic tokens */
+  .btn-inactive {
+    @apply bg-muted text-muted-foreground hover:bg-muted/80;
+  }
+
+  /* Horizontal scroll container for filter pills */
+  .filter-scroll {
+    @apply flex items-center gap-1.5 overflow-x-auto pb-1;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .filter-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Consistent tab trigger style */
+  .tab-trigger {
+    @apply flex items-center gap-1.5 flex-shrink-0 px-3 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap;
+    @apply data-[state=active]:bg-primary data-[state=active]:text-primary-foreground;
+    @apply data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-muted/60;
+  }
+}
