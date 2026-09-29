@@ -1,12 +1,20 @@
 # Post-migration verification checklist
 
-Where the standalone app is most likely to differ from the Zite version, and
-what to check locally. Ordered by how likely each item is to break. Everything
-not listed here runs the same endpoint code against the same base and returned
-correct data in read-only smoke tests on 2026-09-28.
+Where the app is most likely to differ from the Zite version, and what to
+check. Ordered by how likely each item is to break.
 
-Keep the API terminal (`npm run dev`) visible while testing. Every Airtable
-error is logged there with the table, field and message.
+Updated 2026-09-29 for the Next.js migration. The endpoint layer was
+re-verified against the live base afterwards: profile, leads, closed leads,
+activities, reps, status options, admin stats, self-gen, compensation and the
+login report all returned correct data; input validation returned 400; unknown
+endpoints 404; uploads stored and served; path traversal blocked.
+
+**The app has no authentication.** Every request is served as `APP_USER_EMAIL`.
+Treat that as the top item on this list — nothing else here matters if the app
+is reachable by people who should not see the data.
+
+Keep the `npm run dev` terminal visible while testing. Every Airtable error is
+logged there with the table, field and message.
 
 ## 1. Most likely to fail
 
@@ -51,17 +59,12 @@ error is logged there with the table, field and message.
   migrated. Counts are stored in SQLite (`data/app.sqlite`) until the
   planned move to Neon/Supabase.
 
-- [ ] **Sign in / sign out / session expiry**
-  `AUTH_MODE=email` shows an email form on the login card (same flow as Zite).
-  Verified 2026-09-29 against the live roster: valid roster email → session;
-  unknown email → "not found in the SHX Team roster"; Inactive email → "marked
-  as Inactive"; bad address → validation message; 11th attempt in a minute →
-  throttled. Re-check in the browser:
-  - a roster email → dashboard
-  - an email whose SHX Team status is `Inactive` → error under the form
-  - an email not in SHX Team → error under the form
-  When the session cookie expires the app drops to the login screen instead
-  of refreshing a token in the background (`SESSION_TTL_HOURS`, default 168).
+- [ ] **Who the app runs as.** Confirm `APP_USER_EMAIL` matches the SHX Team
+  row you expect, and that its Role gives the right tabs. Check all three
+  outcomes: a valid active row → dashboard; a row marked `Inactive` → Access
+  Denied; an email not in the table → Access Denied naming the config problem.
+  With a Pro row, confirm only that pro's leads, compensation and self-gen
+  entries appear and the manager-only tabs are hidden.
 
 ## 3. Worth a glance
 
@@ -88,12 +91,14 @@ error is logged there with the table, field and message.
 
 ## 5. Still to decide before production (Vercel)
 
-- Whether email-only sign-in is acceptable long term. It matches Zite but
-  proves nothing about who is typing. Options: magic-link email, or
-  `AUTH_MODE=oidc` (redirect URI `<PUBLIC_URL>/auth/callback`).
+- **Authentication.** Nothing should be deployed publicly until
+  `requestUser()` in `server/lib/session.ts` derives the user from a real
+  sign-in. Until then, keep the deployment behind Vercel's deployment
+  protection.
 - Vercel function timeouts: `getLeadCount` (unassigned) and manager
-  `getLeadStats` page through 40k+ NIS Leads rows at 5 req/s and will exceed
-  `maxDuration` (60s in `vercel.json`). Read counts from Airtable
+  `getLeadStats` page through 40k+ NIS Leads rows at 5 req/s. Confirmed
+  2026-09-29: a manager-view `getLeadStats` call ran past 7 minutes locally, so
+  it will exceed any Vercel function timeout. Read counts from Airtable
   rollups/Control Panel or precompute on a cron.
 - Attachments on Vercel: `/tmp` is not public or persistent. Use Airtable's
   direct upload endpoint or Vercel Blob.

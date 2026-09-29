@@ -1,4 +1,4 @@
-import { ApiClientError, UNAUTHORIZED_EVENT } from './api';
+import { ApiClientError } from './api';
 
 export interface UploadResult {
   fileUrl: string;
@@ -14,7 +14,6 @@ export async function uploadFile(options: { data: Blob | File; filename: string 
     body: options.data,
   });
   if (!res.ok) {
-    if (res.status === 401) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
     let message = `${res.status} ${res.statusText}`;
     try {
       message = (await res.json())?.error?.message ?? message;

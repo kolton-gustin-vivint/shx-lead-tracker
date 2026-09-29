@@ -1,7 +1,7 @@
-import { enrichCurrentUser } from '../lib/currentUser.js';
+import { enrichCurrentUser } from '../lib/currentUser';
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint.js';
-import { ShxTeam } from '../airtable/index.js';
+import { createEndpoint } from '../lib/endpoint';
+import { ShxTeam } from '../airtable/index';
 
 export default createEndpoint({
   description: 'Gets running compensation totals for SHX reps based on user permissions. Uses context.user directly — no redundant user lookup.',

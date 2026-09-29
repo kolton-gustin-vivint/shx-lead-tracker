@@ -1,4 +1,13 @@
-# Zite → standalone migration notes
+# Migration notes
+
+Two migrations happened. **Zite → standalone** (2026-09-28) replaced the hosted
+Zite runtime with our own code. **Vite/Express → Next.js** (2026-09-29)
+replaced the framework.
+
+Authentication was removed in the second migration and has not been replaced —
+see *Authentication* at the end.
+
+## Zite → standalone
 
 What was replaced and where the seams are.
 
@@ -7,7 +16,7 @@ What was replaced and where the seams are.
 | `zitejs/backend` `createEndpoint`, `ZiteError` | `server/lib/endpoint.ts` (`createEndpoint`, `ApiError`; `ZiteError` alias kept) |
 | `zitejs/integrations` table clients + record types | `server/airtable/index.ts` + `schema.generated.ts` (generated from the live base) |
 | `zitejs/api` typed client | `src/lib/api.ts` (types inferred from `server/api`) |
-| `zitejs/auth` `useAuth`, `loginWithRedirect`, `logout` | `src/lib/auth.ts` + `server/lib/auth.ts` — `AUTH_MODE=email` checks the address against SHX Team (no password, like the original), `AUTH_MODE=oidc` for a real identity provider |
+| `zitejs/auth` `useAuth`, `loginWithRedirect`, `logout` | nothing — the app has no sign-in (see below) |
 | `zitejs/upload` `uploadFile` | `src/lib/upload.ts` + `server/lib/upload.ts` (local disk, public URL) |
 | `zitejs/db` (`zite.loginEvents`, `zite.sql`) | `server/lib/db.ts` (SQLite via `node:sqlite`) |
 | `context.user` enrichment | unchanged: `server/lib/currentUser.ts` still copies the SHX Team row onto `context.user` |
@@ -33,10 +42,52 @@ Files moved out of `src/` because they only run on the server:
   store (S3/GCS) in `server/lib/upload.ts` instead.
 - **Login history.** Login events start fresh in SQLite; the old platform DB's
   history is not migrated.
-- **Session length.** `SESSION_TTL_HOURS` (default 7 days) replaces the
-  platform's token refresh.
-- **Email-only sign-in is not authentication.** Anyone who knows a roster
-  email can sign in as that person. Sign-in attempts are throttled per IP
-  (10/minute) to slow roster enumeration. The upgrade path that keeps the
-  same form is a magic link: email a signed one-time URL and set the session
-  when it is opened. `AUTH_MODE=oidc` is the stronger option.
+## Vite/Express → Next.js
+
+Everything that held business logic moved unchanged: the 31 endpoint files,
+the Airtable adapter and generated schema, the SHX Team roster and role gating,
+and the whole dashboard UI. What changed is the shell around them.
+
+| Before | After |
+| --- | --- |
+| Vite dev server + `index.html` + `src/main.tsx` | Next App Router: `app/layout.tsx`, `app/page.tsx` |
+| Express app (`server/app.ts`, `server/index.ts`, `api/index.ts`) | Route handlers under `app/api/` |
+| Express dispatcher for `POST /api/:name` | `app/api/[name]/route.ts` (same contract) |
+| `express.static` for `/uploads` | `app/uploads/[...path]/route.ts` |
+| Home-grown email sign-in (`server/lib/auth.ts`, `src/components/LoginScreen.tsx`) | removed — no sign-in |
+| Signed session cookie (`server/lib/session.ts`) | `session.ts` now builds `context.user` from `APP_USER_EMAIL` |
+| `vercel.json` rewrites to one Express function | none — Next on Vercel is zero-config |
+| React 18 | React 19 |
+
+Notes on the seams:
+
+- **`context.user` is unchanged in shape.** `APP_USER_EMAIL` supplies the
+  email; `enrichCurrentUser` still copies the SHX Team row on top, so
+  `context.user.id` is the Airtable record id and `role` works as before.
+- **Roster gating still lives in the app.** The configured email must exist in
+  SHX Team and not be Inactive, or the app shows Access Denied — which now
+  reads as a configuration error rather than a rejected sign-in.
+- **Node ESM `.js` import extensions were removed** from `server/**`. They were
+  needed when the server ran under `tsx`; Next bundles it instead.
+- **`AUTH_MODE`, `SESSION_SECRET`, `SESSION_TTL_HOURS`, `WEB_URL` and the
+  `OIDC_*` variables are gone**, replaced by `APP_USER_EMAIL`.
+- **The Sign Out control was removed** from the sidebar and mobile menu, since
+  there is no session to end.
+
+## Authentication
+
+There is none. `requestUser()` in `server/lib/session.ts` returns a user built
+from `APP_USER_EMAIL`, so every request is served as that one person and anyone
+who reaches the server gets their access.
+
+That function is the whole seam. Replace it so the email comes from whoever is
+signed in and throw `ApiError` `UNAUTHORIZED` otherwise; `requireUser()` is
+already async and both route handlers already call it. Authorization does not
+move — `enrichCurrentUser` keeps deriving role and assigned leads from the SHX
+Team row.
+
+Magistrate (`@FO-Enablement-Vivint/magistrate`, Field Pro Mobile Okta) was
+wired up and then removed before it could be tested. If it comes back, note
+that it requires Next.js and React 19 (both already in place), a GitHub token
+with `read:packages` to install, and authorization from the Enablement team
+before sign-in works. It ships no logout and its sessions are fixed at 8 hours.

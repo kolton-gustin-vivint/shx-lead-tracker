@@ -3,7 +3,7 @@
 // first. Dropping a call still compiles — `context.user.id` becomes the
 // platform session id, which belongs to no row, so anything filtering on
 // it errors or comes back empty, at runtime only.
-import { ShxTeam } from '../airtable/index.js';
+import { ShxTeam } from '../airtable/index';
 
 /** Set by the platform; a roster column of the same name must not win. */
 const PLATFORM_OWNED = ['email', 'roles'];

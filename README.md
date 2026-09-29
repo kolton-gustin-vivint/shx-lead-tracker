@@ -1,86 +1,97 @@
 # SHX Leads Tracker
 
-React + Vite frontend with an Express API that talks to the **SHX Leader Dash**
-Airtable base. This is the standalone replacement for the Zite-hosted app; the
-UI and endpoint logic are unchanged, only the runtime underneath them is ours.
+Next.js app backed by the **SHX Leader Dash** Airtable base. This replaced the
+Zite-hosted app; the UI and the endpoint logic are unchanged, only the runtime
+underneath them is ours.
+
+> ⚠️ **There is no authentication yet.** Every request is served as the single
+> team member named by `APP_USER_EMAIL`, so anyone who can reach the server has
+> that person's access. Keep this to local development until auth is added —
+> see *Adding authentication* below.
 
 ```
-src/                 React app (Vite, Tailwind, shadcn/ui)
-  lib/api.ts         typed client — one function per endpoint, POST /api/<name>
-  lib/auth.ts        useAuth / loginWithRedirect / logout (session cookie)
-  lib/upload.ts      uploadFile → /api/upload
-packages/components  shared shadcn/ui components (@project/components/*)
+app/
+  layout.tsx             root layout, global CSS, Speed Insights
+  page.tsx               the app
+  api/[name]/route.ts    endpoint dispatch — POST /api/<name>
+  api/upload/route.ts    Self-Gen attachment uploads
+  uploads/[...path]/     serves uploaded attachments back to Airtable
+src/
+  AppRoot.tsx            client entry: error boundary + React Query
+  App.tsx                roster/role gating, then the dashboard
+  components/            the dashboard UI
+  lib/api.ts             typed client, one function per endpoint
 server/
-  app.ts             Express app: auth, uploads, endpoint dispatch
-  index.ts           local/VM entry (listens, serves dist/ in production)
-api/index.ts         Vercel serverless entry (same Express app)
-  api/*.ts           one endpoint per file (unchanged business logic)
-  api/index.ts       registry — add new endpoints here
-  airtable/          typed table clients + generated schema
-  lib/airtable.ts    Airtable REST adapter (findAll/findOne/create/update/delete)
-  lib/auth.ts        email-roster sign-in (default) or OIDC
-  lib/db.ts          SQLite (node:sqlite) for login events
-scripts/generate-airtable-schema.ts   regenerates server/airtable/schema.generated.ts
+  api/*.ts               one endpoint per file (business logic)
+  api/index.ts           registry — add new endpoints here
+  airtable/              typed table clients + generated schema
+  lib/airtable.ts        Airtable REST adapter
+  lib/session.ts         resolves the current user — where auth belongs
+  lib/db.ts              SQLite (node:sqlite) for login events
+packages/components/     shared shadcn/ui components
+scripts/generate-airtable-schema.ts   regenerates the Airtable schema
 ```
 
-## Running locally
+## Running it
 
 ```bash
-cp .env.example .env        # fill in AIRTABLE_API_KEY (and OPENAI_API_KEY for AI features)
+cp .env.example .env     # fill in AIRTABLE_API_KEY and APP_USER_EMAIL
 npm install
-npm run dev                 # web on http://localhost:5173, API on http://localhost:3001
+npm run dev              # http://localhost:3000
 ```
 
-Sign-in (`AUTH_MODE=email`, the default) is an email form in the app. The
-address must exist in the **SHX Team** table and not be `Inactive`; there is no
-password, matching the original app. Role gating still comes from that table.
-`AUTH_MODE=oidc` swaps the form for a Sign In button that goes to Google
-Workspace / Microsoft Entra / Okta.
+`APP_USER_EMAIL` must match an email in the **SHX Team** table. That row's Role
+decides whether the manager-only tabs appear. If it matches nothing, the app
+shows an Access Denied screen naming the misconfiguration.
 
-Other scripts:
+Add `OPENAI_API_KEY` for the AI summary and next-action features.
 
 | Script | What it does |
 | --- | --- |
-| `npm run typecheck` | Type-checks web, server and config |
-| `npm run build` | Builds the SPA into `dist/` |
-| `npm start` | Serves API + built SPA on one port (`NODE_ENV=production`) |
-| `npm run schema:generate` | Re-reads the base schema from Airtable's Metadata API |
+| `npm run dev` | Next dev server on port 3000 |
+| `npm run build` | Production build |
+| `npm start` | Serves the production build |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run schema:generate` | Re-reads the base schema from Airtable |
+
+## Adding authentication
+
+All of it goes in one place: `requestUser()` in `server/lib/session.ts`. Today
+it returns a user built from `APP_USER_EMAIL`. Replace it so the email comes
+from whoever is signed in, and throw `ApiError` with code `UNAUTHORIZED` when
+nobody is. Both route handlers already call it through `requireUser()`, which
+is async so a real lookup drops straight in.
+
+Nothing else has to change. Endpoints call `enrichCurrentUser`, which looks the
+SHX Team row up by email and supplies `role`, `status` and `assignedLeads1`, so
+authorization keeps working the way it always has: identity decides who you
+are, the roster decides what you may see.
+
+Two pieces of UI were removed along with the old sign-in and will need adding
+back: the Sign Out control in the sidebar and mobile menu, and a sign-in screen
+if the chosen method needs one.
 
 ## Deploying to Vercel
 
-`vercel.json` builds the SPA into `dist/` and routes `/api/*`, `/auth/*` and
-`/uploads/*` to one serverless function, `api/index.ts`, which wraps the same
-Express app. Set these environment variables in the Vercel project:
+Next.js on Vercel is zero-config — there is no `vercel.json`. Environment
+variables to set:
 
 | Variable | Value |
 | --- | --- |
 | `AIRTABLE_API_KEY` | token with `data.records:read` + `data.records:write` |
 | `AIRTABLE_BASE_ID` | `apphPJFvk2oPNeJK9` |
-| `SESSION_SECRET` | long random string |
-| `AUTH_MODE` | `email` (or `oidc` + the `OIDC_*` variables) |
+| `APP_USER_EMAIL` | an email in the SHX Team table |
 | `OPENAI_API_KEY` | only for the AI summary / next-action features |
-| `ALLOWED_EMAIL_DOMAINS` | optional, e.g. `vivint.com` |
 
-`PUBLIC_URL` defaults to the production domain Vercel provides. Two things do
-not work on Vercel's read-only filesystem and need follow-up:
-login-event history (SQLite falls back to `/tmp`, so 30-day counts reset) →
-move to Neon/Supabase; and attachment uploads (also `/tmp`) → use Airtable's
-direct upload endpoint or blob storage. Long paginating endpoints
-(`getLeadCount`, `getLeadStats` for managers) can exceed the function timeout
-on large tables; see `VERIFICATION.md`.
+**Do not deploy this publicly while `APP_USER_EMAIL` is the only thing
+identifying the user.** Until auth exists, keep it behind Vercel's deployment
+protection or run it locally.
 
-## Production checklist (any host)
-
-1. Pick `AUTH_MODE`. With `oidc`, set `OIDC_ISSUER`, `OIDC_CLIENT_ID`,
-   `OIDC_CLIENT_SECRET` and register `<PUBLIC_URL>/auth/callback` with the
-   provider. For Microsoft Entra use the tenant-specific issuer
-   (`https://login.microsoftonline.com/<tenant-id>/v2.0`).
-2. `SESSION_SECRET` set to a long random value. `PUBLIC_URL` and `WEB_URL` set
-   to the public origin (they are the same when the API serves the SPA).
-3. `PUBLIC_URL` must be reachable from the internet: Airtable downloads
-   Self-Gen attachments from `<PUBLIC_URL>/uploads/...`.
-4. On a VM/container, persist `DATA_DIR` (SQLite login events) and `UPLOAD_DIR`.
-5. Optional: `ALLOWED_EMAIL_DOMAINS=vivint.com`.
+Two things still need follow-up on Vercel's read-only filesystem: login-event
+history (SQLite falls back to `/tmp`, so 30-day counts reset) should move to
+Neon or Supabase Postgres, and attachment uploads (also `/tmp`) need Airtable's
+direct upload endpoint or blob storage. Long paginating endpoints can also
+exceed the function timeout. See `VERIFICATION.md`.
 
 ## How the Airtable layer works
 
@@ -89,8 +100,6 @@ Endpoints use camelCase keys (`record.customerName`, `filters: { status: 'NEW' }
 same convention the old runtime used (`"# Assigned Leads"` → `assignedLeads`,
 `"Assigned Leads"` → `assignedLeads1`, `"Completed?"` → `completed`).
 
-Filters:
-
 | Filter | Airtable formula |
 | --- | --- |
 | `status: 'NEW'` | `{Status} = "NEW"` |
@@ -98,14 +107,13 @@ Filters:
 | `status: { not: 'Inactive' }` | `{Status} != "Inactive"` |
 | `completed: false` | `NOT({Completed?})` |
 | `id: { in: [...] }` | `OR(RECORD_ID() = "…", …)` in chunks of 100 |
-| `assignedPro: { contains: 'rec…' }` | resolved via the inverse link (`SHX Team → Assigned Leads`) into an id set |
+| `assignedPro: { contains: 'rec…' }` | resolved via the inverse link into an id set |
 
 Airtable formulas cannot see linked record ids, so link filters by id are
-resolved through the inverse link field on the other table. Every link field
-the app filters on has one. Pagination cursors for id-set queries look like
-`ids:<chunk>:<airtableOffset>`; everything else uses Airtable's own offset.
-
-Requests are throttled to Airtable's 5 requests/second and retried on 429/5xx.
+resolved through the inverse link field on the other table. Pagination cursors
+for id-set queries look like `ids:<chunk>:<airtableOffset>`; everything else
+uses Airtable's own offset. Requests are throttled to Airtable's 5 requests per
+second and retried on 429/5xx.
 
 If a field is renamed or added in Airtable, run `npm run schema:generate`
 (needs a token with `schema.bases:read`) and commit the result.

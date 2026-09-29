@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint.js';
-import { loginEvents } from '../lib/db.js';
-import { ShxTeam } from '../airtable/index.js';
+import { createEndpoint } from '../lib/endpoint';
+import { loginEvents } from '../lib/db';
+import { ShxTeam } from '../airtable/index';
 
 export default createEndpoint({
   description: 'Returns a login report for managers — last login per team member plus recent login event counts.',

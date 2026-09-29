@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint.js';
-import { ControlPanel } from '../airtable/index.js';
+import { createEndpoint } from '../lib/endpoint';
+import { ControlPanel } from '../airtable/index';
 
 export default createEndpoint({
   description: 'Triggers the Mark Leftover Leads (post-Distribution) automation by toggling the markLeadLeftovers field in the Control Panel',

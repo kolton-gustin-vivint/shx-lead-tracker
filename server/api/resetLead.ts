@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint.js';
-import { NisLeads } from '../airtable/index.js';
+import { createEndpoint } from '../lib/endpoint';
+import { NisLeads } from '../airtable/index';
 
 export default createEndpoint({
   description: 'Resets a lead by updating the resetLead field to trigger the Airtable automation',

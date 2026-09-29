@@ -1,5 +1,4 @@
 node_modules/
-dist/
 .env
 .env.*
 !.env.example
@@ -8,3 +7,10 @@ uploads/
 *.log
 .DS_Store
 .vercel/
+.npmrc
+next-env.d.ts
+.next/
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+.vercel
+.env*

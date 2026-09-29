@@ -1,6 +1,6 @@
 // OpenAI integration — uses the openai package directly.
 import OpenAI from 'openai';
-import { env } from './env.js';
+import { env } from './env';
 
 const openai = new OpenAI({ apiKey: env.openaiApiKey });
 

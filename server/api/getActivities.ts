@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint.js';
-import { Activities, NisLeads } from '../airtable/index.js';
+import { createEndpoint } from '../lib/endpoint';
+import { Activities, NisLeads } from '../airtable/index';
 
 export default createEndpoint({
   description: 'Retrieves activities for a specific lead from the Activities table',

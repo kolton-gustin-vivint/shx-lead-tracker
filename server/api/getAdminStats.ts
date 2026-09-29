@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint.js';
-import { ControlPanel } from '../airtable/index.js';
+import { createEndpoint } from '../lib/endpoint';
+import { ControlPanel } from '../airtable/index';
 
 export default createEndpoint({
   description: 'Returns cached pipeline counts from the Control Panel record — instant single API call. Use refreshAdminStats to recompute and update these values.',

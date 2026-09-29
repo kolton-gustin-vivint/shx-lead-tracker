@@ -1,4 +1,4 @@
-import type { NisLeadsRecordType } from '../airtable/index.js';
+import type { NisLeadsRecordType } from '../airtable/index';
 
 export function passesSearch(record: NisLeadsRecordType, search: string | undefined): boolean {
   if (!search || !search.trim()) return true;

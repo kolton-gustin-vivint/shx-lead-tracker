@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint.js';
-import { NisLeads } from '../airtable/index.js';
+import { createEndpoint } from '../lib/endpoint';
+import { NisLeads } from '../airtable/index';
 
 // Paginate through all records matching filters and return the count.
 // Each call runs as an independent async stream — callers run these in parallel.

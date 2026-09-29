@@ -1,7 +1,7 @@
-import { enrichCurrentUser } from '../lib/currentUser.js';
+import { enrichCurrentUser } from '../lib/currentUser';
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint.js';
-import { SelfGenTime } from '../airtable/index.js';
+import { createEndpoint } from '../lib/endpoint';
+import { SelfGenTime } from '../airtable/index';
 
 export default createEndpoint({
   description: 'Creates a new Self-Gen Time activity record. Managers can optionally specify a proId to log on behalf of another Pro.',

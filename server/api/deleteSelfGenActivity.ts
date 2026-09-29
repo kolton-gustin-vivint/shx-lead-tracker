@@ -1,7 +1,7 @@
-import { enrichCurrentUser } from '../lib/currentUser.js';
+import { enrichCurrentUser } from '../lib/currentUser';
 import { z } from 'zod';
-import { ApiError, createEndpoint } from '../lib/endpoint.js';
-import { SelfGenTime } from '../airtable/index.js';
+import { ApiError, createEndpoint } from '../lib/endpoint';
+import { SelfGenTime } from '../airtable/index';
 
 export default createEndpoint({
   description: 'Deletes a Self-Gen Time activity record. Restricted to Manager-role users.',

@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint.js';
-import { NisLeads } from '../airtable/index.js';
+import { createEndpoint } from '../lib/endpoint';
+import { NisLeads } from '../airtable/index';
 
 export default createEndpoint({
   description: 'Updates a lead record in the NIS Leads table with the provided field values',

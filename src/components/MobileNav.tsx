@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Users, XCircle, DollarSign, Clock, MoreHorizontal, UserMinus, Shield, LogOut, LogIn } from 'lucide-react';
+import { Users, XCircle, DollarSign, Clock, MoreHorizontal, UserMinus, Shield, LogIn } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@project/components/ui/sheet';
 import { Separator } from '@project/components/ui/separator';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@project/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@project/components/ui/dropdown-menu';
 import { Button } from '@project/components/ui/button';
 import ProxySelector from './ProxySelector';
 
@@ -14,7 +14,6 @@ interface MobileNavProps {
   displayName: string;
   email: string;
   initials: string;
-  onLogout: () => void;
 }
 
 const PRIMARY_TABS = [
@@ -32,7 +31,6 @@ export default function MobileNav({
   displayName,
   email,
   initials,
-  onLogout,
 }: MobileNavProps) {
   const [moreOpen, setMoreOpen] = useState(false);
 
@@ -67,11 +65,6 @@ export default function MobileNav({
               <p className="text-sm font-medium">{displayName}</p>
               <p className="text-xs text-muted-foreground">{email}</p>
             </div>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onLogout} className="text-destructive focus:text-destructive">
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
@@ -154,16 +147,6 @@ export default function MobileNav({
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">View as</p>
             <ProxySelector isManager={isManager} variant="default" />
           </div>
-
-          <Separator className="my-4" />
-
-          <button
-            onClick={() => { setMoreOpen(false); onLogout(); }}
-            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-md text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
-          >
-            <LogOut className="h-4 w-4" />
-            Sign Out
-          </button>
         </SheetContent>
       </Sheet>
     </>

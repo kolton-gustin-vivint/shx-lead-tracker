@@ -1,8 +1,8 @@
-import { enrichCurrentUser } from '../lib/currentUser.js';
+import { enrichCurrentUser } from '../lib/currentUser';
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint.js';
-import { ShxTeam } from '../airtable/index.js';
-import { loginEvents } from '../lib/db.js';
+import { createEndpoint } from '../lib/endpoint';
+import { ShxTeam } from '../airtable/index';
+import { loginEvents } from '../lib/db';
 
 export default createEndpoint({
   description: 'Stamps last login on the Airtable record and logs a login event to the local database.',

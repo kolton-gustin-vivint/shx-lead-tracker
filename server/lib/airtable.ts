@@ -15,8 +15,8 @@
  * (formulas only see the linked row's primary field), so they are resolved
  * through the inverse link on the other table and turned into an id set.
  */
-import { env } from './env.js';
-import { ALL_TABLES, BASE_ID, type FieldDef, type TableDef } from '../airtable/schema.generated.js';
+import { env } from './env';
+import { ALL_TABLES, BASE_ID, type FieldDef, type TableDef } from '../airtable/schema.generated';
 
 const API_ROOT = 'https://api.airtable.com/v0';
 const baseId = env.airtableBaseId || BASE_ID;

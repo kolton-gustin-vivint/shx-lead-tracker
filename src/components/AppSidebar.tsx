@@ -1,4 +1,4 @@
-import { Users, XCircle, UserMinus, DollarSign, Clock, Shield, LogOut, LogIn } from 'lucide-react';
+import { Users, XCircle, UserMinus, DollarSign, Clock, Shield, LogIn } from 'lucide-react';
 import ProxySelector from './ProxySelector';
 
 interface NavItem {
@@ -15,7 +15,6 @@ interface AppSidebarProps {
   displayName: string;
   email: string;
   initials: string;
-  onLogout: () => void;
 }
 
 export default function AppSidebar({
@@ -26,7 +25,6 @@ export default function AppSidebar({
   displayName,
   email,
   initials,
-  onLogout,
 }: AppSidebarProps) {
   const navItems: NavItem[] = [
     { id: 'leads', label: 'Leads', icon: <Users className="h-4 w-4" /> },
@@ -94,13 +92,6 @@ export default function AppSidebar({
           <p className="text-xs font-medium truncate text-[hsl(var(--header-foreground))]">{displayName}</p>
           <p className="text-[10px] truncate text-[hsl(var(--header-muted))]">{email}</p>
         </div>
-        <button
-          onClick={onLogout}
-          className="text-[hsl(var(--header-muted))] hover:text-[hsl(var(--header-foreground))] transition-colors shrink-0"
-          title="Sign Out"
-        >
-          <LogOut className="h-4 w-4" />
-        </button>
       </div>
     </aside>
   );

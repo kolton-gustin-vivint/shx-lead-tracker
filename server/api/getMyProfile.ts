@@ -1,6 +1,9 @@
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint.js';
-import { ShxTeam } from '../airtable/index.js';
+import { createEndpoint } from '../lib/endpoint';
+import { ShxTeam } from '../airtable/index';
+import { neon } from '@neondatabase/serverless';
+import { getSession } from '@FO-Enablement-Vivint/magistrate/next';
+
 
 export default createEndpoint({
   description: 'Looks up the signed-in user in the SHX Team table by email and returns their profile',
@@ -17,9 +20,10 @@ export default createEndpoint({
       status: z.string(),
     }).nullable(),
   }),
-  execute: async ({ context }) => {
-    const email = context.user.email;
-    const record = await ShxTeam.findOne({ filters: { email } });
+  
+  execute: async () => {
+    const {session} = await getSession();
+    const record = await ShxTeam.findOne({ filters: { email: session.email } });
 
     if (!record) {
       return { found: false, profile: null };
@@ -31,7 +35,7 @@ export default createEndpoint({
         id: record.id,
         proName: String(record.proName || ''),
         displayName: record.displayName || String(record.proName || ''),
-        email: record.email || email,
+        email: record.email || session.email,
         role: String(record.role || ''),
         status: String(record.status || ''),
       },

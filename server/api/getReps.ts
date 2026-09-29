@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint.js';
-import { ShxTeam } from '../airtable/index.js';
-import type { ShxTeamRecordType } from '../airtable/index.js';
+import { createEndpoint } from '../lib/endpoint';
+import { ShxTeam } from '../airtable/index';
+import type { ShxTeamRecordType } from '../airtable/index';
 
 export default createEndpoint({
   description: 'Retrieves all active sales representatives. Filters inactive reps at the query level and fetches remaining pages in parallel after the first batch.',

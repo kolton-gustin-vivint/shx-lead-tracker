@@ -4,7 +4,7 @@
  * inferred from the endpoint definitions in server/api, so they stay in sync.
  */
 import type { z } from 'zod';
-import type { Endpoints, EndpointName } from '../../server/api';
+import type { Endpoints, EndpointName } from '@server/api';
 
 export type InputOf<N extends EndpointName> = z.infer<Endpoints[N]['inputSchema']>;
 export type OutputOf<N extends EndpointName> = z.infer<Endpoints[N]['outputSchema']>;
@@ -23,9 +23,6 @@ export class ApiClientError extends Error {
     this.issues = issues;
   }
 }
-
-/** Fired when the server answers 401 so the auth hook can drop the session. */
-export const UNAUTHORIZED_EVENT = 'shx:unauthorized';
 
 export async function callEndpoint<N extends EndpointName>(name: N, input?: InputOf<N>): Promise<OutputOf<N>> {
   const res = await fetch(`/api/${name}`, {
@@ -47,7 +44,8 @@ export async function callEndpoint<N extends EndpointName>(name: N, input?: Inpu
     } catch {
       /* non-JSON error body */
     }
-    if (res.status === 401) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+    // The app has no sign-in, so a 401 means the server rejected the request
+    // outright. Surface it rather than bouncing through a login route.
     throw new ApiClientError(res.status, code, message, issues);
   }
 

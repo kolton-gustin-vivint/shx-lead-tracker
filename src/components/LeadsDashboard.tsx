@@ -11,6 +11,7 @@ import AppSidebar from './AppSidebar';
 import MobileNav from './MobileNav';
 import ProxyIndicator from './ProxyIndicator';
 import { useProxy } from '../contexts/ProxyContext';
+import { useSession } from '@FO-Enablement-Vivint/magistrate/next';
 
 interface AuthenticatedUser {
   id: string;
@@ -23,18 +24,19 @@ interface AuthenticatedUser {
 
 interface LeadsDashboardProps {
   user: AuthenticatedUser;
-  onLogout: () => void;
 }
 
-export default function LeadsDashboard({ user, onLogout }: LeadsDashboardProps) {
+export default function LeadsDashboard({ user }: LeadsDashboardProps) {
+  const {session} = useSession();
+
   const [activeTab, setActiveTab] = useState('leads');
   const { originalUser, currentUser, isProxying } = useProxy();
   const isManager = originalUser?.role === 'Manager';
   const displayUser = currentUser || user;
   const showUnassignedTab = isManager && !isProxying;
 
-  const displayName = originalUser?.displayName || originalUser?.proName || user.displayName || user.proName;
-  const email = originalUser?.email || user.email;
+  const displayName = `${session.firstName} ${session.lastName}`;
+  const email = `${session.email}`;
   const initials = displayName
     ? displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
     : 'U';
@@ -50,7 +52,6 @@ export default function LeadsDashboard({ user, onLogout }: LeadsDashboardProps) 
         displayName={displayName}
         email={email}
         initials={initials}
-        onLogout={onLogout}
       />
 
       {/* Mobile header + bottom nav */}
@@ -62,7 +63,6 @@ export default function LeadsDashboard({ user, onLogout }: LeadsDashboardProps) 
         displayName={displayName}
         email={email}
         initials={initials}
-        onLogout={onLogout}
       />
 
       {/* Main content area */}

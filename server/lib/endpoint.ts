@@ -25,9 +25,11 @@ export const HTTP_STATUS_FOR_CODE: Record<ApiErrorCode, number> = {
 };
 
 /**
- * The signed-in user as seen by endpoints. `enrichCurrentUser` copies the
- * user's SHX Team row onto this object, so after that call `id` is the
- * Airtable record id and `role`, `assignedLeads1`, … are available.
+ * The signed-in user as seen by endpoints.
+ *
+ * It starts as identity only (an email). `enrichCurrentUser` then copies the
+ * matching SHX Team row onto it, so after that call `id` is the Airtable
+ * record id and `role`, `assignedLeads1`, … are available.
  */
 export interface RequestUser {
   id: string;

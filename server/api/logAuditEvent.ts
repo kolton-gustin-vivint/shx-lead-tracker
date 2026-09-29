@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint.js';
-import { ShxTeam, AuditLog } from '../airtable/index.js';
+import { createEndpoint } from '../lib/endpoint';
+import { ShxTeam, AuditLog } from '../airtable/index';
 
 export default createEndpoint({
   description: 'Logs an audit event by finding the user pro and creating an audit log entry with the action, details, and lead information',

@@ -1,34 +1,27 @@
+"use client";
+
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useAuth, logout as doLogout } from '@/lib/auth';
 import { recordLogin, getMyProfile, GetMyProfileOutputType } from '@/lib/api';
 import { Toaster } from '@project/components/ui/sonner';
-import { Button } from '@project/components/ui/button';
-import { ShieldAlert, LogOut } from 'lucide-react';
-import LoginScreen from './components/LoginScreen';
+import { ShieldAlert } from 'lucide-react';
 import LeadsDashboard from './components/LeadsDashboard';
 import { ProxyProvider } from './contexts/ProxyContext';
 import { StatusOptionsProvider } from './contexts/StatusOptionsContext';
 import { RepsProvider } from './contexts/RepsContext';
+import { SessionProvider } from '@FO-Enablement-Vivint/magistrate/next';
 
 type Profile = NonNullable<GetMyProfileOutputType['profile']>;
 
 export default function App() {
-  const { user, isLoading, mode: authMode, refresh: refreshAuth } = useAuth();
+  // There is no sign-in. The server decides which SHX Team member every
+  // request acts as (see server/lib/session.ts); getMyProfile reports who
+  // that turned out to be, along with their role.
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState(false);
 
-  // Fetch SHX Team profile once user is authenticated.
-  // Depend on user?.id (not the whole object) so background token refreshes
-  // don't re-trigger the fetch and flash the full-screen spinner.
   useEffect(() => {
-    if (!user) {
-      setProfile(null);
-      setProfileLoading(false);
-      return;
-    }
-    // Only show full-screen loader on the very first fetch
-    if (!profile) setProfileLoading(true);
+    setProfileLoading(true);
     getMyProfile({})
       .then((res) => {
         if (res.found && res.profile) {
@@ -42,9 +35,9 @@ export default function App() {
         setProfileError(true);
       })
       .finally(() => setProfileLoading(false));
-  }, [user?.id]);
+  }, []);
 
-  // Stamp last-login once per session (fire-and-forget)
+  // Stamp last-login once per page load (fire-and-forget)
   const loginStamped = useRef(false);
   useEffect(() => {
     if (profile && profile.role && !loginStamped.current) {
@@ -68,7 +61,7 @@ export default function App() {
   }, [profile?.id, profile?.email, profile?.proName, profile?.displayName, profile?.role]);
 
   // ── Loading ──────────────────────────────────────────────────────────────
-  if (isLoading || (user && profileLoading)) {
+  if (profileLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-3">
@@ -78,16 +71,6 @@ export default function App() {
           <p className="text-sm text-muted-foreground">Loading…</p>
         </div>
       </div>
-    );
-  }
-
-  // ── Not logged in ────────────────────────────────────────────────────────
-  if (!user) {
-    return (
-      <>
-        <LoginScreen mode={authMode} onSignedIn={refreshAuth} />
-        <Toaster />
-      </>
     );
   }
 
@@ -103,13 +86,10 @@ export default function App() {
             <div>
               <h2 className="font-semibold text-lg text-foreground">Something went wrong</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                We couldn't load your team profile. Please try again or contact your manager.
+                We couldn't load the team profile. Check that APP_USER_EMAIL and the Airtable
+                credentials are set, then reload.
               </p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => doLogout()}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </Button>
           </div>
         </div>
         <Toaster />
@@ -123,8 +103,8 @@ export default function App() {
 
   if (isNotInTeam || isInactive) {
     const message = isInactive
-      ? 'Your account is marked as Inactive. Please contact your manager.'
-      : 'Your email was not found in the SHX Team roster. Please contact your manager.';
+      ? 'This account is marked as Inactive in the SHX Team table.'
+      : 'APP_USER_EMAIL does not match any row in the SHX Team table. Check the server configuration.';
 
     return (
       <>
@@ -137,10 +117,6 @@ export default function App() {
               <h2 className="font-semibold text-lg text-foreground">Access Denied</h2>
               <p className="text-sm text-muted-foreground mt-1">{message}</p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => doLogout()}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </Button>
           </div>
         </div>
         <Toaster />
@@ -154,10 +130,11 @@ export default function App() {
       <ProxyProvider user={authenticatedUser}>
         <RepsProvider autoLoad={authenticatedUser.role === 'Manager'}>
           <StatusOptionsProvider>
-            <LeadsDashboard user={authenticatedUser} onLogout={() => doLogout()} />
+            <LeadsDashboard user={authenticatedUser} />
           </StatusOptionsProvider>
         </RepsProvider>
       </ProxyProvider>
+      
       <Toaster />
     </>
   );
