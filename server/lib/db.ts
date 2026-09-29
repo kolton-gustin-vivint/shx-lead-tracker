@@ -1,53 +1,58 @@
 /**
- * Local SQLite store for data that used to live in the hosted platform DB.
- * Today that is only login events (used by the manager Login Report).
+ * Login-event log, stored in Neon (Postgres).
  *
- * Opened lazily so a read-only filesystem (Vercel) or a Node build without
- * node:sqlite degrades to "login counts unavailable" instead of crashing the
- * whole API. On Vercel the file lives in /tmp and does not persist between
- * instances — move this to Postgres (Neon/Supabase) for real history.
+ * Every sign-in appends a row; the manager Login Report reads them back as
+ * per-person counts over the last 30 days.
+ *
+ * This replaced a SQLite file, which could never work on Vercel: each
+ * serverless instance got its own copy under /tmp and it vanished between
+ * requests, so the report always read zero.
+ *
+ * Expected table (LOGIN_EVENTS_TABLE, default `login_events`):
+ *   id                  text       uuid, generated here
+ *   user_email          text
+ *   user_name           text
+ *   airtable_record_id  text
+ *   logged_in_at        timestamp
+ *   role                text
  */
-import { mkdirSync } from 'node:fs';
-import { join } from 'node:path';
-import { createRequire } from 'node:module';
-import { env } from './env';
+import { randomUUID } from 'node:crypto';
+import { neon } from '@neondatabase/serverless';
 
-type Stmt = { run: (...args: unknown[]) => unknown; all: (...args: unknown[]) => unknown[] };
-type Db = { exec: (sql: string) => void; prepare: (sql: string) => Stmt };
-
-let handle: { insert: Stmt; countSince: Stmt } | null | undefined;
-
-function open(): { insert: Stmt; countSince: Stmt } | null {
-  if (handle !== undefined) return handle;
-  try {
-    const require = createRequire(import.meta.url);
-    const { DatabaseSync } = require('node:sqlite') as { DatabaseSync: new (path: string) => Db };
-    mkdirSync(env.dataDir, { recursive: true });
-    const db = new DatabaseSync(join(env.dataDir, 'app.sqlite'));
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS login_events (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_email TEXT NOT NULL,
-        user_name TEXT NOT NULL DEFAULT '',
-        airtable_record_id TEXT NOT NULL,
-        role TEXT NOT NULL DEFAULT '',
-        logged_in_at TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_login_events_record_time ON login_events (airtable_record_id, logged_in_at);
-    `);
-    handle = {
-      insert: db.prepare(
-        `INSERT INTO login_events (user_email, user_name, airtable_record_id, role, logged_in_at) VALUES (?, ?, ?, ?, ?)`,
-      ),
-      countSince: db.prepare(
-        `SELECT airtable_record_id AS airtableRecordId, COUNT(*) AS cnt FROM login_events WHERE logged_in_at >= ? GROUP BY airtable_record_id`,
-      ),
-    };
-  } catch (err) {
-    console.warn('[db] SQLite unavailable; login events will not be recorded:', (err as Error).message);
-    handle = null;
+/** Only a plain identifier, since the table name is interpolated into SQL. */
+function safeTableName(name: string): string {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+    throw new Error(`Invalid LOGIN_EVENTS_TABLE "${name}" — must be a plain identifier.`);
   }
-  return handle;
+  return name;
+}
+
+const TABLE = safeTableName(process.env.LOGIN_EVENTS_TABLE || 'login_events');
+
+type SqlClient = ReturnType<typeof neon>;
+
+let client: SqlClient | null | undefined;
+
+/**
+ * Resolves the Neon client lazily, so a missing DATABASE_URL degrades to
+ * "login history unavailable" rather than breaking every endpoint that
+ * happens to import this module.
+ */
+function db(): SqlClient | null {
+  if (client !== undefined) return client;
+  const url = process.env.DATABASE_URL || process.env.POSTGRES_URL || '';
+  if (!url) {
+    console.warn('[db] DATABASE_URL is not set; login events will not be recorded.');
+    client = null;
+    return client;
+  }
+  try {
+    client = neon(url);
+  } catch (err) {
+    console.warn('[db] Could not connect to Neon; login events will not be recorded:', (err as Error).message);
+    client = null;
+  }
+  return client;
 }
 
 export interface LoginEventInput {
@@ -59,10 +64,48 @@ export interface LoginEventInput {
 }
 
 export const loginEvents = {
-  create(record: LoginEventInput): void {
-    open()?.insert.run(record.userEmail, record.userName, record.airtableRecordId, record.role, record.loggedInAt);
+  /**
+   * Appends one login event. Never throws: failing to write the log should
+   * not stop somebody signing in, so problems are logged and swallowed.
+   */
+  async create(record: LoginEventInput): Promise<void> {
+    const sql = db();
+    if (!sql) return;
+    try {
+      await sql.query(
+        `INSERT INTO ${TABLE} (id, user_email, user_name, airtable_record_id, logged_in_at, role)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          randomUUID(),
+          record.userEmail,
+          record.userName,
+          record.airtableRecordId,
+          // logged_in_at is a timestamp column, so pass a Date, not a string.
+          new Date(record.loggedInAt),
+          record.role,
+        ],
+      );
+    } catch (err) {
+      console.error('[db] Failed to record login event:', (err as Error).message);
+    }
   },
-  countsSince(isoTimestamp: string): Array<{ airtableRecordId: string; cnt: number }> {
-    return (open()?.countSince.all(isoTimestamp) ?? []) as Array<{ airtableRecordId: string; cnt: number }>;
+
+  /** Login counts per Airtable record id since the given time. */
+  async countsSince(isoTimestamp: string): Promise<Array<{ airtableRecordId: string; cnt: number }>> {
+    const sql = db();
+    if (!sql) return [];
+    try {
+      const rows = await sql.query(
+        `SELECT airtable_record_id AS "airtableRecordId", COUNT(*)::int AS cnt
+         FROM ${TABLE}
+         WHERE logged_in_at >= $1
+         GROUP BY airtable_record_id`,
+        [new Date(isoTimestamp)],
+      );
+      return rows as Array<{ airtableRecordId: string; cnt: number }>;
+    } catch (err) {
+      console.error('[db] Failed to read login counts:', (err as Error).message);
+      return [];
+    }
   },
 };

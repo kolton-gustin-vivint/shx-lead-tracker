@@ -34,7 +34,7 @@ export default createEndpoint({
     // Get login counts from the local store for last 30 days
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const countMap = new Map<string, number>();
-    for (const row of loginEvents.countsSince(thirtyDaysAgo)) {
+    for (const row of await loginEvents.countsSince(thirtyDaysAgo)) {
       countMap.set(String(row.airtableRecordId), Number(row.cnt));
     }
 

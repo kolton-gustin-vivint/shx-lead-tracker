@@ -27,7 +27,7 @@ server/
   airtable/              typed table clients + generated schema
   lib/airtable.ts        Airtable REST adapter
   lib/session.ts         resolves the current user — where auth belongs
-  lib/db.ts              SQLite (node:sqlite) for login events
+  lib/db.ts              Neon Postgres — the login-event log
 packages/components/     shared shadcn/ui components
 scripts/generate-airtable-schema.ts   regenerates the Airtable schema
 ```
@@ -87,11 +87,25 @@ variables to set:
 identifying the user.** Until auth exists, keep it behind Vercel's deployment
 protection or run it locally.
 
-Two things still need follow-up on Vercel's read-only filesystem: login-event
-history (SQLite falls back to `/tmp`, so 30-day counts reset) should move to
-Neon or Supabase Postgres, and attachment uploads (also `/tmp`) need Airtable's
-direct upload endpoint or blob storage. Long paginating endpoints can also
-exceed the function timeout. See `VERIFICATION.md`.
+Login history lives in Neon; the connection string arrives as `DATABASE_URL`
+from the Neon integration. One thing still needs follow-up on Vercel's
+read-only filesystem: attachment uploads write to `/tmp`, so they need
+Airtable's direct upload endpoint or blob storage. Long paginating endpoints
+can also exceed the function timeout. See `VERIFICATION.md`.
+
+## Login history
+
+Every sign-in appends a row to the `login_events` table in Neon: who, their
+Airtable record id, their role, and when. `recordLogin` writes it (and stamps
+`lastLogin` on the Airtable row); the manager Login Report reads the last 30
+days back as per-person counts.
+
+Writes are best-effort — if the database is unreachable the sign-in still
+succeeds and the failure is logged. Without `DATABASE_URL` set locally, logins
+simply are not recorded and the report shows zeros.
+
+Set `LOGIN_EVENTS_TABLE` if the table is named something other than
+`login_events`.
 
 ## How the Airtable layer works
 

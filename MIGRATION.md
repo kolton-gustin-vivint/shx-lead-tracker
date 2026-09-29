@@ -18,7 +18,7 @@ What was replaced and where the seams are.
 | `zitejs/api` typed client | `src/lib/api.ts` (types inferred from `server/api`) |
 | `zitejs/auth` `useAuth`, `loginWithRedirect`, `logout` | nothing — the app has no sign-in (see below) |
 | `zitejs/upload` `uploadFile` | `src/lib/upload.ts` + `server/lib/upload.ts` (local disk, public URL) |
-| `zitejs/db` (`zite.loginEvents`, `zite.sql`) | `server/lib/db.ts` (SQLite via `node:sqlite`) |
+| `zitejs/db` (`zite.loginEvents`, `zite.sql`) | `server/lib/db.ts` — SQLite at first, now Neon Postgres |
 | `context.user` enrichment | unchanged: `server/lib/currentUser.ts` still copies the SHX Team row onto `context.user` |
 | `ZITE_OPENAI_ACCESS_TOKEN` | `OPENAI_API_KEY` (old name still read as a fallback) |
 
@@ -40,8 +40,10 @@ Files moved out of `src/` because they only run on the server:
 - **Attachment URLs.** Uploads are stored under `UPLOAD_DIR` and must be public
   long enough for Airtable to fetch them. Behind a VPN-only host, use an object
   store (S3/GCS) in `server/lib/upload.ts` instead.
-- **Login history.** Login events start fresh in SQLite; the old platform DB's
-  history is not migrated.
+- **Login history.** Login events now go to a `login_events` table in Neon
+  (`DATABASE_URL`). They began in SQLite, which could not work on Vercel — each
+  serverless instance had its own copy under `/tmp`. The old platform DB's
+  history was never migrated, so counts start from the Neon switch.
 ## Vite/Express → Next.js
 
 Everything that held business logic moved unchanged: the 31 endpoint files,

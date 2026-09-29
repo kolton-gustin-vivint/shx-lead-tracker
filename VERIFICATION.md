@@ -56,8 +56,9 @@ logged there with the table, field and message.
 - [ ] **Login Report tab**
   Last-login dates come from Airtable and are correct. The 30-day login
   counts start from zero because Zite's `LoginEvents` history was not
-  migrated. Counts are stored in SQLite (`data/app.sqlite`) until the
-  planned move to Neon/Supabase.
+  migrated. Counts now come from the `login_events` table in Neon, so they
+  build up from the first sign-in after that switch. Verify a row actually
+  lands: sign in, then query the table.
 
 - [ ] **Who the app runs as.** Confirm `APP_USER_EMAIL` matches the SHX Team
   row you expect, and that its Role gives the right tabs. Check all three
@@ -102,9 +103,8 @@ logged there with the table, field and message.
   rollups/Control Panel or precompute on a cron.
 - Attachments on Vercel: `/tmp` is not public or persistent. Use Airtable's
   direct upload endpoint or Vercel Blob.
-- Replace SQLite with Neon/Supabase Postgres (`server/lib/db.ts` is the only
-  file to change) and import old `LoginEvents` rows if Zite can export them.
-- Persist `DATA_DIR` and `UPLOAD_DIR` until those moves happen.
+- Import old `LoginEvents` rows into Neon if Zite can still export them.
+- Persist `UPLOAD_DIR`, or move attachments off local disk.
 
 See also `MIGRATION.md` (what replaced what) and `README.md` (running and
 deploying).

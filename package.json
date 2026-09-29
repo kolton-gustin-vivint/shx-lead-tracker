@@ -9,7 +9,8 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "schema:generate": "tsx scripts/generate-airtable-schema.ts"
+    "schema:generate": "tsx scripts/generate-airtable-schema.ts",
+    "db:check": "tsx scripts/check-login-log.ts"
   },
   "dependencies": {
     "@FO-Enablement-Vivint/magistrate": "^1.0.4",

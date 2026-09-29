@@ -20,8 +20,8 @@ export default createEndpoint({
       record: { lastLogin: now },
     });
 
-    // Log event to the local SQLite store
-    loginEvents.create({
+    // Append to the login log in Neon
+    await loginEvents.create({
       userEmail: user.email ?? '',
       userName: user.proName ?? user.displayName ?? '',
       airtableRecordId: user.id,
