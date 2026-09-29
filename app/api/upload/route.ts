@@ -6,12 +6,20 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { ApiError, HTTP_STATUS_FOR_CODE } from '@server/lib/endpoint';
 import { storeUpload } from '@server/lib/upload';
-import { withSession } from '@FO-Enablement-Vivint/magistrate/next';
+import { requireRosterUser } from '@server/lib/roster';
+import { getSession } from '@FO-Enablement-Vivint/magistrate/next';
 
 const MAX_BYTES = 25 * 1024 * 1024;
 
-export const POST = withSession(async(request: NextRequest) => {
+export const POST = async (request: NextRequest) => {
   try {
+    // Same two gates as the endpoint dispatcher: a valid Magistrate session,
+    // then active membership of the SHX Team roster.
+    const { session } = await getSession();
+    if (!session) {
+      throw new ApiError({ code: 'UNAUTHORIZED', message: 'Not signed in' });
+    }
+    await requireRosterUser(session);
 
     const data = Buffer.from(await request.arrayBuffer());
     if (data.length === 0) {
@@ -33,5 +41,4 @@ export const POST = withSession(async(request: NextRequest) => {
     console.error('[upload]', err);
     return NextResponse.json({ error: { code: 'INTERNAL', message: 'Upload failed' } }, { status: 500 });
   }
-}
-)
+};

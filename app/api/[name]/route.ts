@@ -11,20 +11,20 @@ import { ZodError } from 'zod';
 import { ApiError, HTTP_STATUS_FOR_CODE, type AnyEndpoint, type RequestUser } from '@server/lib/endpoint';
 import { AirtableError } from '@server/lib/airtable';
 import { endpoints } from '@server/api';
+import { requireRosterUser } from '@server/lib/roster';
 import { getSession } from '@FO-Enablement-Vivint/magistrate/next';
 
 export const POST = async (request: NextRequest, { params }: { params: Promise<{ name: string}> }) => {
-  const {session} = await getSession();
+  // Magistrate proves who the caller is …
+  const { session } = await getSession();
   if (!session) {
     return NextResponse.json(
-      { error: { code: "Not Authorized", message: "No token session token" }}, 
-      { status: 500 }
-    )
+      { error: { code: 'UNAUTHORIZED', message: 'Not signed in' } },
+      { status: 401 },
+    );
   }
 
   const name = (await params).name;
-  
-  console.log(Object.keys(endpoints));
   const endpoint = (endpoints as Record<string, AnyEndpoint>)[name];
 
   if (!endpoint) {
@@ -35,7 +35,10 @@ export const POST = async (request: NextRequest, { params }: { params: Promise<{
   }
 
   try {
-    const user: RequestUser =  { id: 'anonymous', email: `${session.email}`, roles: [] };
+    // … and the SHX Team roster decides whether they may use this app.
+    // Refuses anyone not on the roster, or marked Inactive, before any
+    // endpoint runs. The returned user already carries their roster row.
+    const user: RequestUser = await requireRosterUser(session);
 
     let body: unknown = {};
     try {

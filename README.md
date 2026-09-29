@@ -4,15 +4,14 @@ Next.js app backed by the **SHX Leader Dash** Airtable base. This replaced the
 Zite-hosted app; the UI and the endpoint logic are unchanged, only the runtime
 underneath them is ours.
 
-> ⚠️ **There is no authentication yet.** Every request is served as the single
-> team member named by `APP_USER_EMAIL`, so anyone who can reach the server has
-> that person's access. Keep this to local development until auth is added —
-> see *Adding authentication* below.
+Sign-in is **Magistrate** (Field Pro Mobile Okta). Access is then restricted to
+the SHX Team roster — see *How access works* below.
 
 ```
 app/
   layout.tsx             root layout, global CSS, Speed Insights
-  page.tsx               the app
+  page.tsx               the app, gated by Magistrate's SessionProvider
+  magistrate-auth/       Magistrate sign-in route
   api/[name]/route.ts    endpoint dispatch — POST /api/<name>
   api/upload/route.ts    Self-Gen attachment uploads
   uploads/[...path]/     serves uploaded attachments back to Airtable
@@ -54,22 +53,34 @@ Add `OPENAI_API_KEY` for the AI summary and next-action features.
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run schema:generate` | Re-reads the base schema from Airtable |
 
-## Adding authentication
+## How access works
 
-All of it goes in one place: `requestUser()` in `server/lib/session.ts`. Today
-it returns a user built from `APP_USER_EMAIL`. Replace it so the email comes
-from whoever is signed in, and throw `ApiError` with code `UNAUTHORIZED` when
-nobody is. Both route handlers already call it through `requireUser()`, which
-is async so a real lookup drops straight in.
+Two separate gates, in order:
 
-Nothing else has to change. Endpoints call `enrichCurrentUser`, which looks the
-SHX Team row up by email and supplies `role`, `status` and `assignedLeads1`, so
-authorization keeps working the way it always has: identity decides who you
-are, the roster decides what you may see.
+1. **Magistrate — who you are.** `SessionProvider` redirects anyone without a
+   session to `/magistrate-auth`, which bounces through Field Pro Mobile and
+   sets an encrypted session cookie. Any Field Pro Mobile user can get this
+   far.
+2. **The SHX Team roster — whether you may use this app.** Every API request
+   passes through `requireRosterUser` in `server/lib/roster.ts`, which looks
+   the session email up in the **SHX Team** table. No row, or a row marked
+   `Inactive`, and the request is refused with 403 before the endpoint runs.
 
-Two pieces of UI were removed along with the old sign-in and will need adding
-back: the Sign Out control in the sidebar and mobile menu, and a sign-in screen
-if the chosen method needs one.
+Because both route handlers call it, the roster gate covers all 31 endpoints
+at once rather than each one remembering to ask. It also populates
+`context.user` from the roster row, so `context.user.id` is the Airtable record
+id and `role` drives the manager/pro split exactly as before.
+
+Roster rows are cached in memory for 60 seconds, so one page load costs a
+single Airtable lookup rather than one per request. The trade-off: marking
+somebody Inactive, or changing their role, takes up to a minute to take effect.
+
+The UI mirrors these decisions — a 403 renders the Access Denied screen with
+the server's message — but the server is the gate. The screens only explain it.
+
+Magistrate sessions last 8 hours and that is not configurable. Magistrate ships
+no logout, and the Sign Out control is currently absent from the sidebar and
+mobile menu.
 
 ## Deploying to Vercel
 

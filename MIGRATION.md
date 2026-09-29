@@ -78,6 +78,15 @@ Notes on the seams:
 
 ## Authentication
 
+Sign-in is Magistrate (Field Pro Mobile Okta). Authorization is separate and
+lives in `server/lib/roster.ts`: `requireRosterUser` refuses any session whose
+email is not an active row in the SHX Team table, and both route handlers call
+it before dispatch. Endpoints therefore receive a `context.user` that already
+carries the roster row, and `enrichCurrentUser` is now a no-op in that path —
+it is kept so the endpoint files stay unchanged.
+
+### Previously (removed)
+
 There is none. `requestUser()` in `server/lib/session.ts` returns a user built
 from `APP_USER_EMAIL`, so every request is served as that one person and anyone
 who reaches the server gets their access.

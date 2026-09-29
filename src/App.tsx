@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { recordLogin, getMyProfile, GetMyProfileOutputType } from '@/lib/api';
+import { recordLogin, getMyProfile, ApiClientError, GetMyProfileOutputType } from '@/lib/api';
 import { Toaster } from '@project/components/ui/sonner';
 import { ShieldAlert } from 'lucide-react';
 import LeadsDashboard from './components/LeadsDashboard';
@@ -13,12 +13,13 @@ import { SessionProvider } from '@FO-Enablement-Vivint/magistrate/next';
 type Profile = NonNullable<GetMyProfileOutputType['profile']>;
 
 export default function App() {
-  // There is no sign-in. The server decides which SHX Team member every
-  // request acts as (see server/lib/session.ts); getMyProfile reports who
-  // that turned out to be, along with their role.
+  // Magistrate has already proved who this is. What is still unknown is
+  // whether they are on the SHX Team roster — the server refuses anyone who
+  // is not, so a 403 here is the roster rejecting them, not a failure.
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState(false);
+  const [deniedReason, setDeniedReason] = useState<string | null>(null);
 
   useEffect(() => {
     setProfileLoading(true);
@@ -31,8 +32,12 @@ export default function App() {
         }
         setProfileError(false);
       })
-      .catch(() => {
-        setProfileError(true);
+      .catch((err) => {
+        if (err instanceof ApiClientError && err.status === 403) {
+          setDeniedReason(err.message);
+        } else {
+          setProfileError(true);
+        }
       })
       .finally(() => setProfileLoading(false));
   }, []);
@@ -86,8 +91,7 @@ export default function App() {
             <div>
               <h2 className="font-semibold text-lg text-foreground">Something went wrong</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                We couldn't load the team profile. Check that APP_USER_EMAIL and the Airtable
-                credentials are set, then reload.
+                We couldn't load your team profile. Please try again or contact your manager.
               </p>
             </div>
           </div>
@@ -98,13 +102,16 @@ export default function App() {
   }
 
   // ── Access control ───────────────────────────────────────────────────────
+  // The server is the real gate; these screens explain its decision.
   const isNotInTeam = !authenticatedUser;
   const isInactive = profile?.status === 'Inactive';
 
-  if (isNotInTeam || isInactive) {
-    const message = isInactive
-      ? 'This account is marked as Inactive in the SHX Team table.'
-      : 'APP_USER_EMAIL does not match any row in the SHX Team table. Check the server configuration.';
+  if (deniedReason || isNotInTeam || isInactive) {
+    const message =
+      deniedReason ??
+      (isInactive
+        ? 'Your account is marked as Inactive. Please contact your manager.'
+        : 'Your email was not found in the SHX Team roster. Please contact your manager.');
 
     return (
       <>
