@@ -13,7 +13,7 @@ import { RepsProvider } from './contexts/RepsContext';
 type Profile = NonNullable<GetMyProfileOutputType['profile']>;
 
 export default function App() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, mode: authMode, refresh: refreshAuth } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState(false);
@@ -85,7 +85,7 @@ export default function App() {
   if (!user) {
     return (
       <>
-        <LoginScreen />
+        <LoginScreen mode={authMode} onSignedIn={refreshAuth} />
         <Toaster />
       </>
     );

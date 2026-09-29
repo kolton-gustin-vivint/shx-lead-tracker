@@ -7,7 +7,7 @@ What was replaced and where the seams are.
 | `zitejs/backend` `createEndpoint`, `ZiteError` | `server/lib/endpoint.ts` (`createEndpoint`, `ApiError`; `ZiteError` alias kept) |
 | `zitejs/integrations` table clients + record types | `server/airtable/index.ts` + `schema.generated.ts` (generated from the live base) |
 | `zitejs/api` typed client | `src/lib/api.ts` (types inferred from `server/api`) |
-| `zitejs/auth` `useAuth`, `loginWithRedirect`, `logout` | `src/lib/auth.ts` + `server/lib/auth.ts` (OIDC or dev mode) |
+| `zitejs/auth` `useAuth`, `loginWithRedirect`, `logout` | `src/lib/auth.ts` + `server/lib/auth.ts` — `AUTH_MODE=email` checks the address against SHX Team (no password, like the original), `AUTH_MODE=oidc` for a real identity provider |
 | `zitejs/upload` `uploadFile` | `src/lib/upload.ts` + `server/lib/upload.ts` (local disk, public URL) |
 | `zitejs/db` (`zite.loginEvents`, `zite.sql`) | `server/lib/db.ts` (SQLite via `node:sqlite`) |
 | `context.user` enrichment | unchanged: `server/lib/currentUser.ts` still copies the SHX Team row onto `context.user` |
@@ -35,3 +35,8 @@ Files moved out of `src/` because they only run on the server:
   history is not migrated.
 - **Session length.** `SESSION_TTL_HOURS` (default 7 days) replaces the
   platform's token refresh.
+- **Email-only sign-in is not authentication.** Anyone who knows a roster
+  email can sign in as that person. Sign-in attempts are throttled per IP
+  (10/minute) to slow roster enumeration. The upgrade path that keeps the
+  same form is a magic link: email a signed one-time URL and set the session
+  when it is opened. `AUTH_MODE=oidc` is the stronger option.

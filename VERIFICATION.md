@@ -52,11 +52,14 @@ error is logged there with the table, field and message.
   planned move to Neon/Supabase.
 
 - [ ] **Sign in / sign out / session expiry**
-  Dev mode (`AUTH_MODE=dev`) shows a plain email form instead of the identity
-  provider. Test three cases:
+  `AUTH_MODE=email` shows an email form on the login card (same flow as Zite).
+  Verified 2026-09-29 against the live roster: valid roster email → session;
+  unknown email → "not found in the SHX Team roster"; Inactive email → "marked
+  as Inactive"; bad address → validation message; 11th attempt in a minute →
+  throttled. Re-check in the browser:
   - a roster email → dashboard
-  - an email whose SHX Team status is `Inactive` → "Access Denied" (inactive)
-  - an email not in SHX Team → "Access Denied" (not in roster)
+  - an email whose SHX Team status is `Inactive` → error under the form
+  - an email not in SHX Team → error under the form
   When the session cookie expires the app drops to the login screen instead
   of refreshing a token in the background (`SESSION_TTL_HOURS`, default 168).
 
@@ -83,11 +86,17 @@ error is logged there with the table, field and message.
    compensation and self-gen entries appear, and manager-only tabs are hidden.
 6. Sign in as an Inactive email and a non-roster email: confirm both are blocked.
 
-## 5. Still to decide before production
+## 5. Still to decide before production (Vercel)
 
-- Identity provider for `AUTH_MODE=oidc` (Google Workspace vs Microsoft Entra
-  vs Okta). Redirect URI is `<PUBLIC_URL>/auth/callback`.
-- Hosting with a public `PUBLIC_URL` so Airtable can fetch attachments.
+- Whether email-only sign-in is acceptable long term. It matches Zite but
+  proves nothing about who is typing. Options: magic-link email, or
+  `AUTH_MODE=oidc` (redirect URI `<PUBLIC_URL>/auth/callback`).
+- Vercel function timeouts: `getLeadCount` (unassigned) and manager
+  `getLeadStats` page through 40k+ NIS Leads rows at 5 req/s and will exceed
+  `maxDuration` (60s in `vercel.json`). Read counts from Airtable
+  rollups/Control Panel or precompute on a cron.
+- Attachments on Vercel: `/tmp` is not public or persistent. Use Airtable's
+  direct upload endpoint or Vercel Blob.
 - Replace SQLite with Neon/Supabase Postgres (`server/lib/db.ts` is the only
   file to change) and import old `LoginEvents` rows if Zite can export them.
 - Persist `DATA_DIR` and `UPLOAD_DIR` until those moves happen.

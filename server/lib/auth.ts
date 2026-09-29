@@ -1,22 +1,25 @@
 /**
  * Sign-in routes. Two modes:
+ *   AUTH_MODE=email — the user enters an email address; it must match a row in
+ *                     the SHX Team table whose Status is not "Inactive". No
+ *                     password or verification, mirroring the original app.
  *   AUTH_MODE=oidc  — standard OpenID Connect (Google Workspace, Microsoft
  *                     Entra, Okta, …) with PKCE. Redirect URI is
  *                     <PUBLIC_URL>/auth/callback.
- *   AUTH_MODE=dev   — local email-only form. Refused in production.
  *
  * Either way the result is a signed session cookie holding { sub, email, name }.
- * Authorization (roster membership, role, Inactive) is still decided by the
- * SHX Team table, exactly as before.
+ * Role / Inactive gating in the app is still driven by the SHX Team table.
  */
-import { Router, type Request, type Response } from 'express';
+import { Router, json, type Request, type Response } from 'express';
 import * as oidc from 'openid-client';
 import { env } from './env';
+import { ShxTeam } from '../airtable';
 import { clearSession, decodeSession, encodeSession, getSession, parseCookies, setSession } from './session';
 
 export const authRouter = Router();
 
 const LOGIN_STATE_COOKIE = 'shx_login';
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function emailAllowed(email: string): boolean {
   if (!env.allowedEmailDomains.length) return true;
@@ -39,17 +42,24 @@ function safeRedirect(target: unknown): string {
   return fallback;
 }
 
-function finishLogin(res: Response, user: { sub: string; email: string; name?: string }, redirect: string) {
-  setSession(res, user);
-  res.clearCookie(LOGIN_STATE_COOKIE, { path: '/' });
-  res.redirect(redirect);
+// ── Small per-IP throttle so the login form can't be used to enumerate the roster ──
+const attempts = new Map<string, { count: number; resetAt: number }>();
+function throttled(ip: string, max = 10, windowMs = 60_000): boolean {
+  const now = Date.now();
+  const entry = attempts.get(ip);
+  if (!entry || entry.resetAt < now) {
+    attempts.set(ip, { count: 1, resetAt: now + windowMs });
+    return false;
+  }
+  entry.count += 1;
+  return entry.count > max;
 }
 
 // ── /auth/me ────────────────────────────────────────────────────────────────
 
 authRouter.get('/me', (req, res) => {
   const s = getSession(req);
-  res.json({ user: s ? { id: s.sub, email: s.email, name: s.name ?? null } : null });
+  res.json({ mode: env.authMode, user: s ? { id: s.sub, email: s.email, name: s.name ?? null } : null });
 });
 
 // ── /auth/logout ────────────────────────────────────────────────────────────
@@ -63,29 +73,40 @@ authRouter.get('/logout', (_req, res) => {
   res.redirect(env.webUrl || '/');
 });
 
-// ── Dev mode ────────────────────────────────────────────────────────────────
+// ── Email mode ──────────────────────────────────────────────────────────────
 
-if (env.authMode === 'dev') {
-  authRouter.get('/login', (req, res) => {
-    const redirect = safeRedirect(req.query.redirect);
-    const email = typeof req.query.email === 'string' ? req.query.email.trim().toLowerCase() : '';
-    if (email) {
-      if (!emailAllowed(email)) return res.status(403).send('Email domain not allowed');
-      return finishLogin(res, { sub: `dev:${email}`, email, name: email.split('@')[0] }, redirect);
+if (env.authMode === 'email') {
+  /** Body: { email }. 200 → session cookie set. 404 → not in roster. 403 → inactive / domain blocked. */
+  authRouter.post('/login', json({ limit: '10kb' }), async (req: Request, res: Response, next) => {
+    try {
+      if (throttled(req.ip || 'unknown')) {
+        return res.status(429).json({ error: { code: 'TOO_MANY_REQUESTS', message: 'Too many sign-in attempts. Try again in a minute.' } });
+      }
+      const email = String(req.body?.email ?? '').trim().toLowerCase();
+      if (!EMAIL_RE.test(email)) {
+        return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Enter a valid email address.' } });
+      }
+      if (!emailAllowed(email)) {
+        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'That email domain is not allowed.' } });
+      }
+
+      const record = await ShxTeam.findOne({ filters: { email } });
+      if (!record) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Your email was not found in the SHX Team roster. Please contact your manager.' } });
+      }
+      if (record.status === 'Inactive') {
+        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Your account is marked as Inactive. Please contact your manager.' } });
+      }
+
+      setSession(res, { sub: record.id, email: record.email || email, name: record.displayName || record.proName });
+      res.json({ ok: true, user: { id: record.id, email: record.email || email, name: record.displayName || record.proName || null } });
+    } catch (err) {
+      next(err);
     }
-    res.type('html').send(`<!doctype html>
-<html><head><meta charset="utf-8"><title>Dev sign-in</title>
-<style>body{font-family:system-ui;display:grid;place-items:center;height:100vh;margin:0;background:#eef0f4}
-form{background:#fff;padding:32px;border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.08);display:grid;gap:12px;min-width:320px}
-input,button{font:inherit;padding:10px 12px;border-radius:8px;border:1px solid #cbd0d8}button{background:#2f8a52;color:#fff;border:0;cursor:pointer}</style></head>
-<body><form method="get" action="/auth/login">
-<strong>Local dev sign-in</strong>
-<span style="font-size:13px;color:#555">Enter an email that exists in the SHX Team table.</span>
-<input type="hidden" name="redirect" value="${redirect.replace(/"/g, '&quot;')}">
-<input type="email" name="email" placeholder="you@vivint.com" required autofocus>
-<button type="submit">Sign in</button>
-</form></body></html>`);
   });
+
+  // Old-style link (/auth/login?redirect=…) just goes back to the app, which shows the form.
+  authRouter.get('/login', (req, res) => res.redirect(safeRedirect(req.query.redirect)));
 }
 
 // ── OIDC mode ───────────────────────────────────────────────────────────────
@@ -97,6 +118,12 @@ if (env.authMode === 'oidc') {
     return configPromise;
   };
   const redirectUri = `${env.publicUrl}/auth/callback`;
+
+  const finishLogin = (res: Response, user: { sub: string; email: string; name?: string }, redirect: string) => {
+    setSession(res, user);
+    res.clearCookie(LOGIN_STATE_COOKIE, { path: '/' });
+    res.redirect(redirect);
+  };
 
   authRouter.get('/login', async (req, res, next) => {
     try {

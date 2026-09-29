@@ -10,8 +10,6 @@ import { join } from 'node:path';
 import type { Request, Response } from 'express';
 import { env } from './env';
 
-mkdirSync(env.uploadDir, { recursive: true });
-
 function safeFilename(name: string): string {
   const cleaned = name.replace(/[/\\?%*:|"<>]/g, '_').replace(/\s+/g, ' ').trim();
   return cleaned.slice(0, 180) || 'file';
