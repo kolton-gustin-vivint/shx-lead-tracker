@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint';
-import { Exports } from '../airtable';
+import { createEndpoint } from '../lib/endpoint.js';
+import { Exports } from '../airtable/index.js';
 
 export default createEndpoint({
   description: 'Deletes a compensation record from the Exports table',

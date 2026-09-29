@@ -2,7 +2,7 @@
  * Typed table clients for the SHX Leader Dash base. Field keys are camelCase
  * versions of the Airtable field names (see schema.generated.ts).
  */
-import { defineTable } from '../lib/airtable';
+import { defineTable } from '../lib/airtable.js';
 import {
   ShxTeamTable,
   NisLeadsTable,
@@ -18,7 +18,7 @@ import {
   type AuditLogRecordType,
   type SelfGenTimeRecordType,
   type ControlPanelRecordType,
-} from './schema.generated';
+} from './schema.generated.js';
 
 export const ShxTeam = defineTable<ShxTeamRecordType>(ShxTeamTable);
 export const NisLeads = defineTable<NisLeadsRecordType>(NisLeadsTable);
@@ -37,4 +37,4 @@ export type {
   SelfGenTimeRecordType,
   ControlPanelRecordType,
   AirtableAttachment,
-} from './schema.generated';
+} from './schema.generated.js';

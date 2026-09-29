@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint';
-import { NisLeads, Activities } from '../airtable';
-import { OpenAIGpt54 } from '../lib/openai';
+import { createEndpoint } from '../lib/endpoint.js';
+import { NisLeads, Activities } from '../airtable/index.js';
+import { OpenAIGpt54 } from '../lib/openai.js';
 
 export default createEndpoint({
   description: 'Analyzes a lead and suggests the best next action for a sales representative using AI',

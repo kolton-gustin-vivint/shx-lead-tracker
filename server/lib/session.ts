@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { Request, Response } from 'express';
-import { env } from './env';
+import { env } from './env.js';
 
 export const SESSION_COOKIE = 'shx_session';
 

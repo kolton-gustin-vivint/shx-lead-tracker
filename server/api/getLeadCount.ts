@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint';
-import { NisLeads } from '../airtable';
-import type { NisLeadsRecordType } from '../airtable';
+import { createEndpoint } from '../lib/endpoint.js';
+import { NisLeads } from '../airtable/index.js';
+import type { NisLeadsRecordType } from '../airtable/index.js';
 
 export default createEndpoint({
   description: 'Gets the total count of leads matching the specified filters including status, assigned pro, unassigned only flag, and search term',

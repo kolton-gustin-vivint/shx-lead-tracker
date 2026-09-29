@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint';
-import { NisLeads, ControlPanel } from '../airtable';
+import { createEndpoint } from '../lib/endpoint.js';
+import { NisLeads, ControlPanel } from '../airtable/index.js';
 
 export default createEndpoint({
   description: 'Recomputes pipeline counts by paginating NIS Leads, then saves the results to the Control Panel record for instant future reads via getAdminStats.',

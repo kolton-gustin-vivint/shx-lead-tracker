@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint';
+import { createEndpoint } from '../lib/endpoint.js';
 
 // Complete predefined status options matching the NIS Leads schema.
 // This is the authoritative list — no Airtable calls needed.

@@ -12,9 +12,9 @@
  */
 import { Router, json, type Request, type Response } from 'express';
 import * as oidc from 'openid-client';
-import { env } from './env';
-import { ShxTeam } from '../airtable';
-import { clearSession, decodeSession, encodeSession, getSession, parseCookies, setSession } from './session';
+import { env } from './env.js';
+import { ShxTeam } from '../airtable/index.js';
+import { clearSession, decodeSession, encodeSession, getSession, parseCookies, setSession } from './session.js';
 
 export const authRouter = Router();
 

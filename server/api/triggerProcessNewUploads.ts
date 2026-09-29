@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint';
-import { ControlPanel } from '../airtable';
+import { createEndpoint } from '../lib/endpoint.js';
+import { ControlPanel } from '../airtable/index.js';
 
 export default createEndpoint({
   description: 'Triggers the Process New Uploads automation by toggling the processNewUploads field in the Control Panel',

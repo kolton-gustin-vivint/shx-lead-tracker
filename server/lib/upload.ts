@@ -8,7 +8,7 @@ import { randomBytes } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Request, Response } from 'express';
-import { env } from './env';
+import { env } from './env.js';
 
 function safeFilename(name: string): string {
   const cleaned = name.replace(/[/\\?%*:|"<>]/g, '_').replace(/\s+/g, ' ').trim();

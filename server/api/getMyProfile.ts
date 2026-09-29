@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint';
-import { ShxTeam } from '../airtable';
+import { createEndpoint } from '../lib/endpoint.js';
+import { ShxTeam } from '../airtable/index.js';
 
 export default createEndpoint({
   description: 'Looks up the signed-in user in the SHX Team table by email and returns their profile',

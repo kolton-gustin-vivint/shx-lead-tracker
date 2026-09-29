@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint';
-import { SelfGenTime } from '../airtable';
+import { createEndpoint } from '../lib/endpoint.js';
+import { SelfGenTime } from '../airtable/index.js';
 
 export default createEndpoint({
   description: 'Updates an existing Self-Gen Time activity record',

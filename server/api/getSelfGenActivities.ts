@@ -1,7 +1,7 @@
-import { enrichCurrentUser } from '../lib/currentUser';
+import { enrichCurrentUser } from '../lib/currentUser.js';
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint';
-import { SelfGenTime, ShxTeam } from '../airtable';
+import { createEndpoint } from '../lib/endpoint.js';
+import { SelfGenTime, ShxTeam } from '../airtable/index.js';
 
 /** Parses "8:00 am - 8:30 am" style time slots into minutes-since-midnight for sorting. */
 function parseSlotMinutes(slot?: string): number {

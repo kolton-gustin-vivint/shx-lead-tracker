@@ -10,7 +10,7 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
-import { env } from './env';
+import { env } from './env.js';
 
 type Stmt = { run: (...args: unknown[]) => unknown; all: (...args: unknown[]) => unknown[] };
 type Db = { exec: (sql: string) => void; prepare: (sql: string) => Stmt };

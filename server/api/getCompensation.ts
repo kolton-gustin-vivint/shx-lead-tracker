@@ -1,7 +1,7 @@
-import { enrichCurrentUser } from '../lib/currentUser';
+import { enrichCurrentUser } from '../lib/currentUser.js';
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint';
-import { Exports } from '../airtable';
+import { createEndpoint } from '../lib/endpoint.js';
+import { Exports } from '../airtable/index.js';
 
 export default createEndpoint({
   description: 'Gets compensation records from the Exports table based on user role and permissions. Uses context.user directly — no redundant user lookup.',

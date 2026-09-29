@@ -1,9 +1,9 @@
-import { enrichCurrentUser } from '../lib/currentUser';
+import { enrichCurrentUser } from '../lib/currentUser.js';
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint';
-import { NisLeads, ShxTeam } from '../airtable';
-import type { NisLeadsRecordType } from '../airtable';
-import { passesSearch, mapLead } from '../utils/leadUtils';
+import { createEndpoint } from '../lib/endpoint.js';
+import { NisLeads, ShxTeam } from '../airtable/index.js';
+import type { NisLeadsRecordType } from '../airtable/index.js';
+import { passesSearch, mapLead } from '../utils/leadUtils.js';
 
 export default createEndpoint({
   description: `Returns CLOSED leads only. Uses context.user.assignedLeads directly when the

@@ -2,9 +2,9 @@
 import express from 'express';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { env } from './lib/env';
-import { createApp } from './app';
-import { endpoints } from './api';
+import { env } from './lib/env.js';
+import { createApp } from './app.js';
+import { endpoints } from './api/index.js';
 
 const app = createApp();
 

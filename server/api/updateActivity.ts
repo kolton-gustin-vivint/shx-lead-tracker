@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { createEndpoint } from '../lib/endpoint';
-import { Activities } from '../airtable';
+import { createEndpoint } from '../lib/endpoint.js';
+import { Activities } from '../airtable/index.js';
 
 export default createEndpoint({
   description: 'Updates an existing activity record in the Activities table',

@@ -7,13 +7,13 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { ZodError } from 'zod';
-import { env } from './lib/env';
-import { authRouter } from './lib/auth';
-import { getSession } from './lib/session';
-import { handleUpload } from './lib/upload';
-import { ApiError, HTTP_STATUS_FOR_CODE, type AnyEndpoint, type RequestUser } from './lib/endpoint';
-import { AirtableError } from './lib/airtable';
-import { endpoints } from './api';
+import { env } from './lib/env.js';
+import { authRouter } from './lib/auth.js';
+import { getSession } from './lib/session.js';
+import { handleUpload } from './lib/upload.js';
+import { ApiError, HTTP_STATUS_FOR_CODE, type AnyEndpoint, type RequestUser } from './lib/endpoint.js';
+import { AirtableError } from './lib/airtable.js';
+import { endpoints } from './api/index.js';
 
 export function createApp() {
   const app = express();
