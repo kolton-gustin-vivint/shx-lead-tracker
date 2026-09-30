@@ -42,12 +42,26 @@ export default function App() {
       .finally(() => setProfileLoading(false));
   }, []);
 
-  // Stamp last-login once per page load (fire-and-forget)
+  // Record a login once per browser session, not once per page load.
+  // sessionStorage survives a refresh but is cleared when the tab or browser is
+  // closed, so reopening the app counts and refreshing it does not. The flag is
+  // set only after the call succeeds, so a failed attempt retries on next load.
+  // (The server also ignores repeat logins within a few hours.)
   const loginStamped = useRef(false);
   useEffect(() => {
     if (profile && profile.role && !loginStamped.current) {
       loginStamped.current = true;
-      recordLogin({}).catch(() => {});
+      const flag = `shx:login-recorded:${profile.email.toLowerCase()}`;
+      try {
+        if (sessionStorage.getItem(flag)) return;
+      } catch {
+        // Storage blocked: fall through and rely on the server-side window.
+      }
+      recordLogin({})
+        .then(() => {
+          try { sessionStorage.setItem(flag, '1'); } catch { /* ignore */ }
+        })
+        .catch(() => {});
     }
   }, [profile]);
 

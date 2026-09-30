@@ -3,17 +3,18 @@ import { z } from 'zod';
 import { createEndpoint } from '../lib/endpoint';
 import { NisLeads, ShxTeam } from '../airtable/index';
 import type { NisLeadsRecordType } from '../airtable/index';
-import { passesSearch, mapLead } from '../utils/leadUtils';
+import { passesSearch, mapLead, leadSearchAny } from '../utils/leadUtils';
 
 export default createEndpoint({
   description: `Returns ACTIVE leads only (NEW + IN-PROGRESS — never CLOSED).
 
   FOR PRO USERS (assignedPro provided): Uses context.user.assignedLeads directly when the
   requesting user is the assigned pro (saves one API call). Fetches all chunks in PARALLEL
-  instead of sequentially for a dramatic speed improvement. All matching active leads are
-  returned in a single response.
+  instead of sequentially for a dramatic speed improvement. Returns all matching active leads
+  in a single response, or one page of them (numeric index offset) when a limit is provided.
 
-  FOR MANAGERS (no assignedPro): Queries NIS Leads with leadType: 'Active', paginated by limit/offset.`,
+  FOR MANAGERS (no assignedPro): Queries NIS Leads with leadType: 'Active', paginated by limit/offset.
+  Search is pushed into the Airtable formula so it covers the whole table, not just the current page.`,
   authenticated: true,
   inputSchema: z.object({
     limit: z.number().optional(),
@@ -86,10 +87,17 @@ export default createEndpoint({
         }
       }
 
+      // Everything is already in memory, so paging is just a slice. `offset` is
+      // a numeric index here (same scheme as getClosedLeads). Without a `limit`
+      // the caller gets the whole set, as before.
+      const startIndex = input.limit && input.offset ? parseInt(input.offset, 10) || 0 : 0;
+      const pageEnd = input.limit ? startIndex + input.limit : accumulated.length;
+      const hasMore = pageEnd < accumulated.length;
+
       return {
-        leads: accumulated.map(mapLead),
-        offset: undefined,
-        hasMore: false,
+        leads: accumulated.slice(startIndex, pageEnd).map(mapLead),
+        offset: hasMore ? pageEnd.toString() : undefined,
+        hasMore,
         totalCount: accumulated.length,
       };
     }
@@ -106,22 +114,22 @@ export default createEndpoint({
 
     const leadTypeFilter = input.unassignedOnly ? 'Ready to Assign' : 'Active';
 
+    // Search runs in the Airtable formula, not over the returned page, so a
+    // page of results is a page of matches from the whole table.
     const fetchLeads = await NisLeads.findAll({
       filters: {
         status: airtableStatusFilter,
         leadType: leadTypeFilter,
       },
+      searchAny: leadSearchAny(input.search),
       offset: input.offset,
       limit,
     });
 
     const allRecords = fetchLeads.records || [];
-    const filteredRecords = input.search && input.search.trim()
-      ? allRecords.filter(r => passesSearch(r, input.search))
-      : allRecords;
 
     return {
-      leads: filteredRecords.map(mapLead),
+      leads: allRecords.map(mapLead),
       offset: fetchLeads.offset,
       hasMore: fetchLeads.hasMore || false,
       totalCount: null,

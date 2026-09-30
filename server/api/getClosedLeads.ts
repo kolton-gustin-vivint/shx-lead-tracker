@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { createEndpoint } from '../lib/endpoint';
 import { NisLeads, ShxTeam } from '../airtable/index';
 import type { NisLeadsRecordType } from '../airtable/index';
-import { passesSearch, mapLead } from '../utils/leadUtils';
+import { passesSearch, mapLead, leadSearchAny } from '../utils/leadUtils';
 
 export default createEndpoint({
   description: `Returns CLOSED leads only. Uses context.user.assignedLeads directly when the
@@ -92,22 +92,22 @@ export default createEndpoint({
     // ─────────────────────────────────────────────────────────────────────────
     // MANAGER VIEW — use leadType: 'Closed' filter at Airtable level
     // ─────────────────────────────────────────────────────────────────────────
+    // Search runs in the Airtable formula, not over the returned page, so a
+    // page of results is a page of matches from the whole table.
     const fetchLeads = await NisLeads.findAll({
       filters: {
         leadType: 'Closed',
         status: input.subStatus ? input.subStatus : undefined,
       },
+      searchAny: leadSearchAny(input.search),
       offset: input.offset,
       limit,
     });
 
     const allRecords = fetchLeads.records || [];
-    const filteredRecords = input.search && input.search.trim()
-      ? allRecords.filter(r => passesSearch(r, input.search))
-      : allRecords;
 
     return {
-      leads: filteredRecords.map(mapLead),
+      leads: allRecords.map(mapLead),
       offset: fetchLeads.offset,
       hasMore: fetchLeads.hasMore || false,
       totalCount: null,

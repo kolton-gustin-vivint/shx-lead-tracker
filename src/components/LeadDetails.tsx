@@ -67,12 +67,13 @@ export default function LeadDetails({
   }, [lead?.id]);
 
   const handleLeadFieldsUpdated = (updates: Partial<Lead>) => {
-    setCurrentLead(prev => {
-      if (!prev) return prev;
-      const updated = { ...prev, ...updates };
-      onLeadUpdated?.(updated);
-      return updated;
-    });
+    if (!currentLead) return;
+    const updated = { ...currentLead, ...updates };
+    setCurrentLead(updated);
+    // Notify the parent outside the state updater. A setState updater must be
+    // pure — React may run it during render, and the parent's handler sets
+    // state of its own, which warns about updating LeadsTab mid-render.
+    onLeadUpdated?.(updated);
   };
 
   const handleRevertLead = () => {

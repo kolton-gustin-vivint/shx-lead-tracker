@@ -111,6 +111,12 @@ export interface FindAllOptions {
   /** Opaque cursor from a previous result. */
   offset?: string;
   sort?: Array<{ field: string; direction?: 'asc' | 'desc' }>;
+  /**
+   * Case-insensitive substring match across several fields at once, ANDed with
+   * `filters`. Evaluated by Airtable, so a page of results is a page of
+   * matches from the whole table rather than matches within the first page.
+   */
+  searchAny?: { fields: string[]; term: string };
 }
 
 export interface FindAllResult<T> {
@@ -304,6 +310,23 @@ export function defineTable<T extends { id: string }>(def: TableDef): TableClien
     return { formulaParts, idSet };
   }
 
+  /**
+   * `OR(FIND(...), ...)` over several fields. The term is lowercased in JS and
+   * each field is wrapped in LOWER() so the match is case-insensitive, which
+   * keeps it consistent with the in-memory search helpers.
+   */
+  function searchAnyFormula(search: FindAllOptions['searchAny']): string | null {
+    const term = search?.term?.trim().toLowerCase();
+    if (!term || !search?.fields.length) return null;
+    const needle = quote(term);
+    const parts = search.fields.map(key => {
+      const f = requireField(key);
+      const ref = f.multiValue ? `ARRAYJOIN(${fieldRef(f)})` : `${fieldRef(f)} & ""`;
+      return `FIND(${needle}, LOWER(${ref})) > 0`;
+    });
+    return parts.length === 1 ? parts[0] : `OR(${parts.join(', ')})`;
+  }
+
   function joinAnd(parts: string[]): string | undefined {
     if (!parts.length) return undefined;
     return parts.length === 1 ? parts[0] : `AND(${parts.join(', ')})`;
@@ -327,6 +350,9 @@ export function defineTable<T extends { id: string }>(def: TableDef): TableClien
   async function findAll(options: FindAllOptions = {}): Promise<FindAllResult<T>> {
     const pageSize = Math.max(1, Math.min(options.limit ?? MAX_PAGE, MAX_PAGE));
     const { formulaParts, idSet } = await compileFilters(options.filters);
+
+    const searchFormula = searchAnyFormula(options.searchAny);
+    if (searchFormula) formulaParts.push(searchFormula);
 
     // Plain query: Airtable's own cursor is the offset.
     if (idSet === null) {

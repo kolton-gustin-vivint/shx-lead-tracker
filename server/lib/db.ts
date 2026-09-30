@@ -19,6 +19,14 @@
 import { randomUUID } from 'node:crypto';
 import { neon } from '@neondatabase/serverless';
 
+/**
+ * `logged_in_at` is `timestamp without time zone`, and we keep it as UTC wall
+ * time. Passing a JS Date would be serialised in the *machine's* local zone
+ * (so a laptop in UTC-6 would store times 6 hours early), so times are sent as
+ * ISO strings and converted to UTC inside SQL instead.
+ */
+const UTC_PARAM = (n: number) => `($${n}::timestamptz AT TIME ZONE 'UTC')`;
+
 /** Only a plain identifier, since the table name is interpolated into SQL. */
 function safeTableName(name: string): string {
   if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
@@ -74,19 +82,41 @@ export const loginEvents = {
     try {
       await sql.query(
         `INSERT INTO ${TABLE} (id, user_email, user_name, airtable_record_id, logged_in_at, role)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
+         VALUES ($1, $2, $3, $4, ${UTC_PARAM(5)}, $6)`,
         [
           randomUUID(),
           record.userEmail,
           record.userName,
           record.airtableRecordId,
-          // logged_in_at is a timestamp column, so pass a Date, not a string.
-          new Date(record.loggedInAt),
+          record.loggedInAt,
           record.role,
         ],
       );
     } catch (err) {
       console.error('[db] Failed to record login event:', (err as Error).message);
+    }
+  },
+
+  /**
+   * Whether this person already has a login event at or after `sinceIso`.
+   * Compared inside SQL so the `timestamp` (no time zone) column is never
+   * parsed back into a JS Date. Fails open (false) so a database problem
+   * never stops a login from being recorded.
+   */
+  async hasLoginSince(airtableRecordId: string, sinceIso: string): Promise<boolean> {
+    const sql = db();
+    if (!sql) return false;
+    try {
+      const rows = await sql.query(
+        `SELECT EXISTS (
+           SELECT 1 FROM ${TABLE} WHERE airtable_record_id = $1 AND logged_in_at >= ${UTC_PARAM(2)}
+         ) AS found`,
+        [airtableRecordId, sinceIso],
+      );
+      return Boolean((rows as Array<{ found: boolean }>)[0]?.found);
+    } catch (err) {
+      console.error('[db] Failed to check recent logins:', (err as Error).message);
+      return false;
     }
   },
 
@@ -98,9 +128,9 @@ export const loginEvents = {
       const rows = await sql.query(
         `SELECT airtable_record_id AS "airtableRecordId", COUNT(*)::int AS cnt
          FROM ${TABLE}
-         WHERE logged_in_at >= $1
+         WHERE logged_in_at >= ${UTC_PARAM(1)}
          GROUP BY airtable_record_id`,
-        [new Date(isoTimestamp)],
+        [isoTimestamp],
       );
       return rows as Array<{ airtableRecordId: string; cnt: number }>;
     } catch (err) {

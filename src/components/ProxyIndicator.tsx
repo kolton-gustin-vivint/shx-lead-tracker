@@ -22,9 +22,9 @@ export default function ProxyIndicator() {
           variant="ghost"
           size="sm"
           onClick={clearProxy}
-          className="h-7 px-2.5 text-xs text-[hsl(var(--warning-text))] hover:bg-[hsl(var(--warning-border))/50] shrink-0"
+          className="h-7 px-2.5 gap-0.5 text-xs text-[hsl(var(--warning-text))] hover:text-[hsl(var(--warning-text)/0.75)] hover:bg-[hsl(var(--warning-border)/0.5)] shrink-0"
         >
-          <X className="h-3.5 w-3.5 mr-1" />
+          <X className="h-3.5 w-3.5 mr-0.2" />
           Exit
         </Button>
       </div>

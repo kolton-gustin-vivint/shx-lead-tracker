@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@project/components/ui/card';
 import { Button } from '@project/components/ui/button';
 import { Skeleton } from '@project/components/ui/skeleton';
@@ -36,7 +36,9 @@ export default function UnassignedLeadsTab({
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [hasMore, setHasMore] = useState(false);
-  const [offset, setOffset] = useState<string | undefined>(undefined);
+  // Airtable cursors only move forward, so keep the cursor used to fetch each
+  // page: cursorsRef[n] fetches page n + 1. That is what lets Previous work.
+  const cursorsRef = useRef<(string | undefined)[]>([undefined]);
   const [totalCount, setTotalCount] = useState<number | null>(null);
 
   // Stats state
@@ -55,22 +57,19 @@ export default function UnassignedLeadsTab({
   useEffect(() => {
     if (!isManager) return;
     setCurrentPage(1);
-    setOffset(undefined);
-    loadUnassignedLeads(1, undefined, debouncedSearch, true);
+    loadUnassignedLeads(1, undefined, debouncedSearch);
   }, [debouncedSearch]);
 
-  const loadUnassignedLeads = async (page: number = 1, _unused?: any, search?: string, resetOffset: boolean = true) => {
+  const loadUnassignedLeads = async (requestedPage: number = 1, _unused?: any, search?: string) => {
+    // We only hold a cursor for pages we've already walked to; anything else
+    // restarts from page 1.
+    const page = requestedPage > 1 && cursorsRef.current[requestedPage - 1] === undefined ? 1 : requestedPage;
     try {
       setLoading(true);
 
-      // Calculate offset for the requested page
-      let pageOffset: string | undefined = undefined;
-      if (page > 1 && !resetOffset && offset) {
-        pageOffset = offset;
-      }
       const requestParams = {
         unassignedOnly: true,
-        offset: pageOffset,
+        offset: cursorsRef.current[page - 1],
         limit: RECORDS_PER_PAGE,
         search: search && search.trim() ? search.trim() : undefined,
       };
@@ -79,9 +78,12 @@ export default function UnassignedLeadsTab({
       const [leadsResult, countResult] = await Promise.all([getLeads(requestParams), getLeadCount({
         unassignedOnly: true
       })]);
+      // Keep cursors up to this page and record the one for the next.
+      cursorsRef.current = cursorsRef.current.slice(0, page);
+      cursorsRef.current[page] = leadsResult.offset;
+
       setLeads(leadsResult.leads);
       setHasMore(leadsResult.hasMore);
-      setOffset(leadsResult.offset);
       setCurrentPage(page);
       setTotalCount(countResult.totalCount);
 
@@ -119,7 +121,7 @@ export default function UnassignedLeadsTab({
   useEffect(() => {
     if (isManager) {
       // Load leads first, then fetch assigned count after to avoid Airtable rate limits
-      loadUnassignedLeads(1, undefined, '', true).then(() => {
+      loadUnassignedLeads(1, undefined, '').then(() => {
         loadAssignedCount();
       });
     }
@@ -129,12 +131,11 @@ export default function UnassignedLeadsTab({
     setShowLeadDetails(true);
   };
   const handlePageChange = (newPage: number) => {
-    loadUnassignedLeads(newPage, undefined, debouncedSearch, newPage === 1);
+    loadUnassignedLeads(newPage, undefined, debouncedSearch);
   };
   const handleRefresh = () => {
     setCurrentPage(1);
-    setOffset(undefined);
-    loadUnassignedLeads(1, undefined, debouncedSearch, true).then(() => {
+    loadUnassignedLeads(1, undefined, debouncedSearch).then(() => {
       loadAssignedCount();
     });
   };

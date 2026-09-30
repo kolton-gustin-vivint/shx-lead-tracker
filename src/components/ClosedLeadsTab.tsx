@@ -44,7 +44,9 @@ export default function ClosedLeadsTab({ isManager }: ClosedLeadsTabProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [hasMore, setHasMore] = useState(false);
-  const [offset, setOffset] = useState<string | undefined>(undefined);
+  // Airtable cursors only move forward, so keep the cursor used to fetch each
+  // page: cursorsRef[n] fetches page n + 1. That is what lets Previous work.
+  const cursorsRef = useRef<(string | undefined)[]>([undefined]);
 
   const userRecordId = currentUser?.id ?? '';
   const RECORDS_PER_PAGE = 50;
@@ -58,35 +60,37 @@ export default function ClosedLeadsTab({ isManager }: ClosedLeadsTabProps) {
   useEffect(() => {
     if (!hasFetched) return;
     setCurrentPage(1);
-    setOffset(undefined);
-    loadPage(1, selectedSubStatus === 'all' ? undefined : selectedSubStatus, debouncedSearch, true);
+    loadPage(1, selectedSubStatus === 'all' ? undefined : selectedSubStatus, debouncedSearch);
   }, [debouncedSearch]);
 
   useEffect(() => {
     if (!hasFetched) return;
     setCurrentPage(1);
-    setOffset(undefined);
     setSelectedSubStatus('all');
-    loadPage(1, undefined, debouncedSearch, true);
+    loadPage(1, undefined, debouncedSearch);
   }, [userRecordId, showManagerView, isProxying]);
 
-  const loadPage = async (page: number, subStatus?: string, search?: string, resetOffset = true) => {
+  const loadPage = async (requestedPage: number, subStatus?: string, search?: string) => {
+    // We only hold a cursor for pages we've already walked to; anything else
+    // restarts from page 1.
+    const page = requestedPage > 1 && cursorsRef.current[requestedPage - 1] === undefined ? 1 : requestedPage;
     try {
       setLoading(true);
-      let pageOffset: string | undefined = undefined;
-      if (page > 1 && !resetOffset && offset) pageOffset = offset;
 
       const result = await getClosedLeads({
         subStatus: subStatus || undefined,
         assignedPro: !showManagerView && userRecordId ? userRecordId : undefined,
         search: search && search.trim() ? search.trim() : undefined,
-        offset: pageOffset,
+        offset: cursorsRef.current[page - 1],
         limit: RECORDS_PER_PAGE,
       });
 
+      // Keep cursors up to this page and record the one for the next.
+      cursorsRef.current = cursorsRef.current.slice(0, page);
+      cursorsRef.current[page] = result.offset;
+
       setLeads(result.leads);
       setHasMore(result.hasMore);
-      setOffset(result.offset);
       setCurrentPage(page);
       setLastRefreshTime(new Date());
       setHasFetched(true);
@@ -102,22 +106,20 @@ export default function ClosedLeadsTab({ isManager }: ClosedLeadsTabProps) {
   const handleSubStatusFilter = (subStatus: string) => {
     setSelectedSubStatus(subStatus);
     setCurrentPage(1);
-    setOffset(undefined);
-    loadPage(1, subStatus === 'all' ? undefined : subStatus, debouncedSearch, true);
+    loadPage(1, subStatus === 'all' ? undefined : subStatus, debouncedSearch);
   };
 
   const handleSearch = (search: string) => setSearchTerm(search);
 
   const handlePageChange = (newPage: number) => {
     const sub = selectedSubStatus === 'all' ? undefined : selectedSubStatus;
-    loadPage(newPage, sub, debouncedSearch, newPage === 1);
+    loadPage(newPage, sub, debouncedSearch);
   };
 
   const handleRefresh = () => {
     const sub = selectedSubStatus === 'all' ? undefined : selectedSubStatus;
     setCurrentPage(1);
-    setOffset(undefined);
-    loadPage(1, sub, debouncedSearch, true);
+    loadPage(1, sub, debouncedSearch);
   };
 
   const handleLeadUpdated = (updatedLead: Lead) => {
@@ -136,7 +138,7 @@ export default function ClosedLeadsTab({ isManager }: ClosedLeadsTabProps) {
 
   useEffect(() => {
     if (!hasFetched) {
-      loadPage(1, undefined, '', true);
+      loadPage(1, undefined, '');
     }
   }, []);
 

@@ -54,6 +54,36 @@ const formatDate = (dateString: any) => {
   try { return new Date(dateString).toLocaleDateString(); } catch { return '—'; }
 };
 
+/** One-line description that expands on click, but only when it is actually cut off. */
+function ExpandableDetails({ text }: { text: string }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [truncated, setTruncated] = useState(false);
+
+  // Measure while collapsed; once expanded there is nothing left to measure.
+  useEffect(() => {
+    const el = ref.current;
+    if (el && !expanded) setTruncated(el.scrollWidth > el.clientWidth);
+  }, [text, expanded]);
+
+  const canToggle = truncated || expanded;
+
+  return (
+    <button
+      ref={ref}
+      type="button"
+      onClick={() => canToggle && setExpanded(e => !e)}
+      aria-expanded={canToggle ? expanded : undefined}
+      title={canToggle && !expanded ? 'Click to expand' : undefined}
+      className={`block text-left text-xs text-muted-foreground mt-0.5 max-w-[280px] ${
+        expanded ? 'whitespace-pre-wrap break-words' : 'truncate'
+      } ${canToggle ? 'cursor-pointer hover:text-foreground' : 'cursor-default'}`}
+    >
+      {text}
+    </button>
+  );
+}
+
 export default function CompensationTab({ isManager }: CompensationTabProps) {
   const { currentUser, isProxying } = useProxy();
   const { pros: salesReps } = useReps();
@@ -465,7 +495,7 @@ export default function CompensationTab({ isManager }: CompensationTabProps) {
                         <TableCell className="py-3 px-4 pl-6">
                           <div className="font-medium text-foreground">{record.customerName || 'Unknown'}</div>
                           {record.compensationDetails && (
-                            <div className="text-xs text-muted-foreground mt-0.5 truncate max-w-[280px]">{record.compensationDetails}</div>
+                            <ExpandableDetails text={record.compensationDetails} />
                           )}
                         </TableCell>
                         <TableCell className="py-3 px-4">

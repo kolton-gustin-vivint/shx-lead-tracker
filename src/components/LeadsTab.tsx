@@ -18,6 +18,7 @@ interface LeadsTabProps {
 
 const AUTO_REFRESH_INTERVAL = 60000;
 const STATUS_DEBOUNCE_MS = 300;
+const RECORDS_PER_PAGE = 50;
 
 const SUB_STATUSES: Record<string, { value: string; label: string }[]> = {
   'IN-PROGRESS': [
@@ -47,8 +48,23 @@ export default function LeadsTab({ isManager }: LeadsTabProps) {
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
+
   const autoRefreshRef = useRef<number | null>(null);
   const isUserInteractingRef = useRef(false);
+
+  // Airtable cursors only move forward, so keep the cursor used to fetch each
+  // page: cursorsRef[n] fetches page n + 1, which lets Previous work. Refs (not
+  // state) because the auto-refresh interval would otherwise close over stale
+  // values.
+  const cursorsRef = useRef<(string | undefined)[]>([undefined]);
+  const pageRef = useRef(1);
+  // Bumped by every user-driven load; a response only applies if it is still
+  // the latest, so a slow request can't overwrite a newer page.
+  const requestSeqRef = useRef(0);
+  const userLoadInFlightRef = useRef(false);
 
   // Safe even when currentUser is temporarily null — hooks must always be called
   const userRecordId = currentUser?.id ?? '';
@@ -80,19 +96,46 @@ export default function LeadsTab({ isManager }: LeadsTabProps) {
     status?: string,
     search?: string,
     isAutoRefresh: boolean = false,
-    currentSelectedLead?: Lead | null
+    currentSelectedLead?: Lead | null,
+    page: number = 1
   ) => {
+    // We only hold a cursor for pages we've already walked to; anything else
+    // restarts from page 1.
+    const targetPage = page > 1 && cursorsRef.current[page - 1] === undefined ? 1 : page;
+    // Auto-refresh never supersedes a user-driven load.
+    const requestSeq = isAutoRefresh ? requestSeqRef.current : ++requestSeqRef.current;
+
     try {
-      if (!isAutoRefresh) setLoading(true);
+      if (!isAutoRefresh) {
+        userLoadInFlightRef.current = true;
+        setLoading(true);
+      }
 
       const result = await getLeads({
         status: status || undefined,
         assignedPro: !showManagerView && userRecordId ? userRecordId : undefined,
         search: search && search.trim() ? search.trim() : undefined,
         unassignedOnly: false,
+        offset: cursorsRef.current[targetPage - 1],
+        limit: RECORDS_PER_PAGE,
       });
 
+      if (requestSeq !== requestSeqRef.current) return;
+
+      // The page emptied out (e.g. its last lead was just closed): step back.
+      if (result.leads.length === 0 && targetPage > 1) {
+        return loadLeads(status, search, isAutoRefresh, currentSelectedLead, targetPage - 1);
+      }
+
+      // Keep cursors up to this page and record the one for the next.
+      cursorsRef.current = cursorsRef.current.slice(0, targetPage);
+      cursorsRef.current[targetPage] = result.offset;
+      pageRef.current = targetPage;
+
       setLeads(result.leads);
+      setCurrentPage(targetPage);
+      setHasMore(result.hasMore);
+      setTotalCount(result.totalCount ?? null);
       setLastRefreshTime(new Date());
 
       // Keep the selected lead in sync if the dialog is open
@@ -103,9 +146,12 @@ export default function LeadsTab({ isManager }: LeadsTabProps) {
       }
     } catch (error) {
       console.error('Error loading leads:', error);
-      if (!isAutoRefresh) toast.error('Failed to load leads');
+      if (!isAutoRefresh && requestSeq === requestSeqRef.current) toast.error('Failed to load leads');
     } finally {
-      if (!isAutoRefresh) setLoading(false);
+      if (!isAutoRefresh && requestSeq === requestSeqRef.current) {
+        userLoadInFlightRef.current = false;
+        setLoading(false);
+      }
     }
   };
 
@@ -127,9 +173,9 @@ export default function LeadsTab({ isManager }: LeadsTabProps) {
   const startAutoRefresh = () => {
     if (autoRefreshRef.current) clearInterval(autoRefreshRef.current);
     autoRefreshRef.current = window.setInterval(() => {
-      if (autoRefreshEnabled && !isUserInteractingRef.current && !showLeadDetails) {
+      if (autoRefreshEnabled && !isUserInteractingRef.current && !showLeadDetails && !userLoadInFlightRef.current) {
         const effectiveStatus = getEffectiveStatus(selectedStatus, selectedSubStatus);
-        loadLeads(effectiveStatus, debouncedSearchTerm, true);
+        loadLeads(effectiveStatus, debouncedSearchTerm, true, undefined, pageRef.current);
       }
     }, AUTO_REFRESH_INTERVAL);
   };
@@ -198,7 +244,12 @@ export default function LeadsTab({ isManager }: LeadsTabProps) {
 
   const handleRefresh = () => {
     const effectiveStatus = getEffectiveStatus(selectedStatus, selectedSubStatus);
-    loadLeads(effectiveStatus, debouncedSearchTerm, false);
+    loadLeads(effectiveStatus, debouncedSearchTerm, false, undefined, pageRef.current);
+  };
+
+  const handlePageChange = (page: number) => {
+    const effectiveStatus = getEffectiveStatus(selectedStatus, selectedSubStatus);
+    loadLeads(effectiveStatus, debouncedSearchTerm, false, undefined, page);
   };
 
   const toggleAutoRefresh = () => {
@@ -277,15 +328,15 @@ export default function LeadsTab({ isManager }: LeadsTabProps) {
           onSearch={(s) => setSearchTerm(s)}
           searchTerm={searchTerm}
           isManager={showManagerView}
-          currentPage={1}
-          totalPages={1}
-          hasMore={false}
-          onPageChange={() => {}}
-          recordsPerPage={leads.length}
+          currentPage={currentPage}
+          totalPages={hasMore ? currentPage + 1 : currentPage}
+          hasMore={hasMore}
+          onPageChange={handlePageChange}
+          recordsPerPage={RECORDS_PER_PAGE}
           autoRefreshEnabled={autoRefreshEnabled}
           onToggleAutoRefresh={toggleAutoRefresh}
           lastRefreshTime={lastRefreshTime}
-          totalCount={leads.length}
+          totalCount={totalCount}
         />
       )}
 

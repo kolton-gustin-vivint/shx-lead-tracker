@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import LeadsTab from './LeadsTab';
 import ClosedLeadsTab from './ClosedLeadsTab';
 import UnassignedLeadsTab from './UnassignedLeadsTab';
@@ -26,14 +26,53 @@ interface LeadsDashboardProps {
   user: AuthenticatedUser;
 }
 
+// The active tab lives in the URL hash (#tab=compensation) so a refresh, a
+// bookmark, or the back button lands on the same tab. This component only
+// mounts after the profile has loaded on the client, so reading
+// window.location during the first render is safe (no server-render mismatch).
+const TAB_HASH_PREFIX = '#tab=';
+
+function readTabFromHash(): string {
+  if (typeof window === 'undefined') return 'leads';
+  const { hash } = window.location;
+  return hash.startsWith(TAB_HASH_PREFIX) ? decodeURIComponent(hash.slice(TAB_HASH_PREFIX.length)) : 'leads';
+}
+
 export default function LeadsDashboard({ user }: LeadsDashboardProps) {
   const {session} = useSession();
 
-  const [activeTab, setActiveTab] = useState('leads');
+  const [requestedTab, setRequestedTab] = useState(readTabFromHash);
   const { originalUser, currentUser, isProxying } = useProxy();
   const isManager = originalUser?.role === 'Manager';
   const displayUser = currentUser || user;
   const showUnassignedTab = isManager && !isProxying;
+
+  // Follow back/forward and manual edits to the hash.
+  useEffect(() => {
+    const onHashChange = () => setRequestedTab(readTabFromHash());
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  // Only tabs this user can actually see. Anything else (a stale bookmark, a
+  // Pro opening #tab=admin, Unassigned while proxying) falls back to Leads, so
+  // the sidebar highlight always matches what is rendered.
+  const visibleTabs = [
+    'leads',
+    'closed',
+    'compensation',
+    'selfgen',
+    ...(showUnassignedTab ? ['unassigned'] : []),
+    ...(isManager ? ['team', 'admin', 'logins'] : []),
+  ];
+  const activeTab = visibleTabs.includes(requestedTab) ? requestedTab : 'leads';
+
+  // Setting the hash adds a history entry and fires `hashchange`, which
+  // updates state above — the URL stays the single source of truth.
+  const setActiveTab = (tab: string) => {
+    if (tab === activeTab) return;
+    window.location.hash = `${TAB_HASH_PREFIX}${encodeURIComponent(tab)}`;
+  };
 
   const displayName = `${session.firstName} ${session.lastName}`;
   const email = `${session.email}`;
