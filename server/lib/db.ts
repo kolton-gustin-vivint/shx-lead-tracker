@@ -120,6 +120,28 @@ export const loginEvents = {
     }
   },
 
+  /**
+   * Most recent login per person, as an ISO-8601 UTC string. Formatted in SQL
+   * (not read back as a JS Date) so the `timestamp` column is never parsed in
+   * the server's local zone.
+   */
+  async lastLogins(): Promise<Array<{ airtableRecordId: string; last: string }>> {
+    const sql = db();
+    if (!sql) return [];
+    try {
+      const rows = await sql.query(
+        `SELECT airtable_record_id AS "airtableRecordId",
+                to_char(MAX(logged_in_at), 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS last
+         FROM ${TABLE}
+         GROUP BY airtable_record_id`,
+      );
+      return rows as Array<{ airtableRecordId: string; last: string }>;
+    } catch (err) {
+      console.error('[db] Failed to read last logins:', (err as Error).message);
+      return [];
+    }
+  },
+
   /** Login counts per Airtable record id since the given time. */
   async countsSince(isoTimestamp: string): Promise<Array<{ airtableRecordId: string; cnt: number }>> {
     const sql = db();

@@ -9,7 +9,28 @@ import { Skeleton } from '@project/components/ui/skeleton';
 import { ArrowUpDown, RefreshCw, Search, LogIn, UserX } from 'lucide-react';
 import { getLoginReport, GetLoginReportOutputType } from '@/lib/api';
 import { toast } from 'sonner';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, differenceInCalendarDays } from 'date-fns';
+
+/**
+ * A last-login value is either a full ISO timestamp or a bare calendar date
+ * ("2026-09-30", which is all Airtable's date field can hold). `new Date()` reads
+ * a bare date as midnight UTC, which displays as the *previous* evening anywhere
+ * west of UTC — so bare dates are built as local calendar dates instead.
+ */
+function parseLastLogin(value: string): { date: Date; dateOnly: boolean } {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (m) return { date: new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])), dateOnly: true };
+  return { date: new Date(value), dateOnly: false };
+}
+
+function describeAge({ date, dateOnly }: { date: Date; dateOnly: boolean }): string {
+  if (!dateOnly) return formatDistanceToNow(date, { addSuffix: true });
+  // Only the day is known, so say the day rather than a misleading hour count.
+  const days = differenceInCalendarDays(new Date(), date);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  return `${days} days ago`;
+}
 
 type TeamLogin = GetLoginReportOutputType['teamLogins'][0];
 
@@ -36,7 +57,7 @@ export default function LoginReportTab() {
   const neverLoggedIn = data.filter(d => !d.lastLogin).length;
   const loggedInLast7d = data.filter(d => {
     if (!d.lastLogin) return false;
-    return Date.now() - new Date(d.lastLogin).getTime() < 7 * 24 * 60 * 60 * 1000;
+    return Date.now() - parseLastLogin(d.lastLogin).date.getTime() < 7 * 24 * 60 * 60 * 1000;
   }).length;
 
   const columns = useMemo<ColumnDef<TeamLogin>[]>(() => [
@@ -71,11 +92,11 @@ export default function LoginReportTab() {
       cell: ({ getValue }) => {
         const v = getValue() as string | null;
         if (!v) return <span className="text-muted-foreground italic text-xs">Never</span>;
-        const d = new Date(v);
+        const parsed = parseLastLogin(v);
         return (
           <div>
-            <div className="text-sm">{d.toLocaleDateString()}</div>
-            <div className="text-xs text-muted-foreground">{formatDistanceToNow(d, { addSuffix: true })}</div>
+            <div className="text-sm">{parsed.date.toLocaleDateString()}</div>
+            <div className="text-xs text-muted-foreground">{describeAge(parsed)}</div>
           </div>
         );
       },
@@ -85,7 +106,7 @@ export default function LoginReportTab() {
         if (!aVal && !bVal) return 0;
         if (!aVal) return 1;
         if (!bVal) return -1;
-        return new Date(aVal).getTime() - new Date(bVal).getTime();
+        return parseLastLogin(aVal).date.getTime() - parseLastLogin(bVal).date.getTime();
       },
     },
     {
