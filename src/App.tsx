@@ -151,7 +151,7 @@ export default function App() {
       <ProxyProvider user={authenticatedUser}>
         <RepsProvider autoLoad={authenticatedUser.role === 'Manager'}>
           <StatusOptionsProvider>
-            <LeadsDashboard user={authenticatedUser} />
+            <LeadsDashboard />
           </StatusOptionsProvider>
         </RepsProvider>
       </ProxyProvider>

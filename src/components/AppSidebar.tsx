@@ -1,4 +1,4 @@
-import { Users, XCircle, UserMinus, DollarSign, Clock, Shield, LogIn } from 'lucide-react';
+import { Users, XCircle, DollarSign, Clock } from 'lucide-react';
 import ProxySelector from './ProxySelector';
 
 interface NavItem {
@@ -11,7 +11,6 @@ interface AppSidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
   isManager: boolean;
-  showUnassigned: boolean;
   displayName: string;
   email: string;
   initials: string;
@@ -21,7 +20,6 @@ export default function AppSidebar({
   activeTab,
   onTabChange,
   isManager,
-  showUnassigned,
   displayName,
   email,
   initials,
@@ -29,12 +27,8 @@ export default function AppSidebar({
   const navItems: NavItem[] = [
     { id: 'leads', label: 'Leads', icon: <Users className="h-4 w-4" /> },
     { id: 'closed', label: 'Closed', icon: <XCircle className="h-4 w-4" /> },
-    ...(showUnassigned ? [{ id: 'unassigned', label: 'Unassigned', icon: <UserMinus className="h-4 w-4" /> }] : []),
     { id: 'compensation', label: 'Compensation', icon: <DollarSign className="h-4 w-4" /> },
     { id: 'selfgen', label: 'Self-Gen', icon: <Clock className="h-4 w-4" /> },
-    ...(isManager ? [{ id: 'team', label: 'Team', icon: <Users className="h-4 w-4" /> }] : []),
-    ...(isManager ? [{ id: 'admin', label: 'Admin', icon: <Shield className="h-4 w-4" /> }] : []),
-    ...(isManager ? [{ id: 'logins', label: 'Login Report', icon: <LogIn className="h-4 w-4" /> }] : []),
   ];
 
   return (

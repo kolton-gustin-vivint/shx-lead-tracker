@@ -108,8 +108,8 @@ can also exceed the function timeout. See `VERIFICATION.md`.
 
 Every sign-in appends a row to the `login_events` table in Neon: who, their
 Airtable record id, their role, and when. `recordLogin` writes it (and stamps
-`lastLogin` on the Airtable row); the manager Login Report reads the last 30
-days back as per-person counts.
+`lastLogin` on the Airtable row); the login report (moving to the future
+SHX-Admin app) reads the last 30 days back as per-person counts.
 
 Writes are best-effort — if the database is unreachable the sign-in still
 succeeds and the failure is logged. Without `DATABASE_URL` set locally, logins

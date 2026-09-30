@@ -18,17 +18,6 @@ logged there with the table, field and message.
 
 ## 1. Most likely to fail
 
-- [ ] **Lead Details → "Reset Lead"** (`server/api/resetLead.ts`)
-  Writes `true` to the NIS Leads field **Reset Lead**, which is an Airtable
-  *button* field. The REST API rejects writes to button fields.
-  *Fix:* add a checkbox field in Airtable, point the automation at it, and
-  change the key written in `resetLead.ts`.
-
-- [ ] **Team tab → "Load Leads"** (`server/api/triggerLoadLeadsForPro.ts`)
-  Same problem: SHX Team **Load Leads** is a button field.
-  *Fix:* same as above (`Skip Load Leads` is already a checkbox; a new
-  `Load Leads Trigger` checkbox would be the clean option).
-
 - [ ] **Self-Gen form / edit dialog with attachments**
   Uploads return a `http://localhost:3001/uploads/...` URL. Airtable cannot
   fetch localhost, so attaching a file fails locally. Test Self-Gen entries
@@ -42,23 +31,16 @@ logged there with the table, field and message.
 
 ## 2. Likely to behave slightly differently
 
-- [ ] **Admin tab → "Refresh stats"** (`server/api/refreshAdminStats.ts`)
-  The raw-intake count assumes the first page of NIS Leads is newest-first.
-  Queries run without a view, so Airtable returns default table order.
-  Compare the refreshed number with the cached one shown before refreshing.
-  *Fix if wrong:* add `sort: [{ field: 'dateAdded', direction: 'desc' }]` to
-  that query.
-
-- [ ] **Manager Leads / Closed Leads / Unassigned lists — order**
+- [ ] **Manager Leads / Closed Leads lists — order**
   Same ordering caveat. Records are identical; first-page order may differ
   from Zite. Decide whether that matters.
 
-- [ ] **Login Report tab**
-  Last-login dates come from Airtable and are correct. The 30-day login
-  counts start from zero because Zite's `LoginEvents` history was not
-  migrated. Counts now come from the `login_events` table in Neon, so they
-  build up from the first sign-in after that switch. Verify a row actually
-  lands: sign in, then query the table.
+- [ ] **Login history (Neon)**
+  The Login Report tab has moved out of this app (it will live in SHX-Admin),
+  but `recordLogin` still writes to the `login_events` table in Neon. Counts
+  start from zero because Zite's `LoginEvents` history was not migrated.
+  Verify a row actually lands: open the app in a fresh tab, then query the
+  table (`npm run db:check`). Refreshing the page must NOT add a row.
 
 - [ ] **Who the app runs as.** Confirm `APP_USER_EMAIL` matches the SHX Team
   row you expect, and that its Role gives the right tabs. Check all three
@@ -84,8 +66,8 @@ logged there with the table, field and message.
 
 1. `npm run dev`, sign in as yourself (Manager).
 2. Leads tab: counts, filters, search, first-page order.
-3. Open a lead: add, edit, delete an activity; change status; run Reset Lead.
-4. Team, Compensation, Self-Gen (no files), Login Report, Admin tabs.
+3. Open a lead: add, edit, delete an activity; change status.
+4. Closed, Compensation and Self-Gen (no files) tabs.
 5. Sign out, sign in as a **Pro** email: confirm only that pro's leads,
    compensation and self-gen entries appear, and manager-only tabs are hidden.
 6. Sign in as an Inactive email and a non-roster email: confirm both are blocked.

@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Users, XCircle, DollarSign, Clock, MoreHorizontal, UserMinus, Shield, LogIn } from 'lucide-react';
+import { Users, XCircle, DollarSign, Clock, MoreHorizontal } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@project/components/ui/sheet';
-import { Separator } from '@project/components/ui/separator';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@project/components/ui/dropdown-menu';
 import { Button } from '@project/components/ui/button';
 import ProxySelector from './ProxySelector';
@@ -10,7 +9,6 @@ interface MobileNavProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
   isManager: boolean;
-  showUnassigned: boolean;
   displayName: string;
   email: string;
   initials: string;
@@ -27,19 +25,11 @@ export default function MobileNav({
   activeTab,
   onTabChange,
   isManager,
-  showUnassigned,
   displayName,
   email,
   initials,
 }: MobileNavProps) {
   const [moreOpen, setMoreOpen] = useState(false);
-
-  const isActiveInMore = ['unassigned', 'team', 'admin', 'logins'].includes(activeTab);
-
-  const handleMoreItemClick = (tab: string) => {
-    onTabChange(tab);
-    setMoreOpen(false);
-  };
 
   return (
     <>
@@ -93,9 +83,7 @@ export default function MobileNav({
           {isManager && (
             <button
               onClick={() => setMoreOpen(true)}
-              className={`flex flex-col items-center gap-0.5 px-2 py-2 min-w-0 flex-1 transition-colors ${
-                isActiveInMore ? 'text-primary' : 'text-muted-foreground'
-              }`}
+              className="flex flex-col items-center gap-0.5 px-2 py-2 min-w-0 flex-1 transition-colors text-muted-foreground"
             >
               <MoreHorizontal className="h-5 w-5" />
               <span className="text-[10px] font-medium leading-tight">More</span>
@@ -111,65 +99,13 @@ export default function MobileNav({
             <SheetTitle className="text-base">More</SheetTitle>
           </SheetHeader>
 
-          <div className="space-y-1 mt-4">
-            {showUnassigned && (
-              <MoreSheetItem
-                icon={<UserMinus className="h-4 w-4" />}
-                label="Unassigned"
-                active={activeTab === 'unassigned'}
-                onClick={() => handleMoreItemClick('unassigned')}
-              />
-            )}
-            <MoreSheetItem
-              icon={<Users className="h-4 w-4" />}
-              label="Team"
-              active={activeTab === 'team'}
-              onClick={() => handleMoreItemClick('team')}
-            />
-            <MoreSheetItem
-              icon={<Shield className="h-4 w-4" />}
-              label="Admin"
-              active={activeTab === 'admin'}
-              onClick={() => handleMoreItemClick('admin')}
-            />
-            <MoreSheetItem
-              icon={<LogIn className="h-4 w-4" />}
-              label="Login Report"
-              active={activeTab === 'logins'}
-              onClick={() => handleMoreItemClick('logins')}
-            />
-          </div>
-
-          <Separator className="my-4" />
-
           {/* Proxy selector */}
-          <div className="space-y-2">
+          <div className="space-y-2 mt-4">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">View as</p>
             <ProxySelector isManager={isManager} variant="default" />
           </div>
         </SheetContent>
       </Sheet>
     </>
-  );
-}
-
-function MoreSheetItem({ icon, label, active, onClick }: {
-  icon: React.ReactNode;
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-3 w-full px-3 py-3 rounded-md text-sm font-medium transition-colors ${
-        active
-          ? 'bg-primary/10 text-primary'
-          : 'text-foreground hover:bg-muted'
-      }`}
-    >
-      {icon}
-      {label}
-    </button>
   );
 }

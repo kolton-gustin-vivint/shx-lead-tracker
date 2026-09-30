@@ -4,10 +4,9 @@ import { Button } from '@project/components/ui/button';
 import { Card, CardContent } from '@project/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@project/components/ui/tabs';
 import { Badge } from '@project/components/ui/badge';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@project/components/ui/alert-dialog';
 import { Plus, MessageSquare, Edit, Phone, Mail, Calendar, User, MapPin, Building, Hash, Clock, RefreshCw, Sparkles, FileText } from 'lucide-react';
 import { toast } from 'sonner';
-import { GetLeadsOutputType, GetRepsOutputType, resetLead, suggestNextAction, generateAiSummary } from '@/lib/api';
+import { GetLeadsOutputType, GetRepsOutputType, suggestNextAction, generateAiSummary } from '@/lib/api';
 import { logAuditEvent } from '../utils/auditLogger';
 import { getStatusColorWithHover } from '../utils/statusColors';
 import { formatPhone, phoneHref } from '../utils/formatters';
@@ -52,8 +51,6 @@ export default function LeadDetails({
   const [showEditForm, setShowEditForm] = useState(false);
   const [showQuickStatusChange, setShowQuickStatusChange] = useState(false);
   const [editingActivity, setEditingActivity] = useState<any>(null);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
   const [loadingSuggestion, setLoadingSuggestion] = useState(false);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
@@ -119,30 +116,6 @@ export default function LeadDetails({
   const handleActivityFormClose = () => {
     setShowActivityForm(false);
     setEditingActivity(null);
-  };
-
-  const handleResetLead = async () => {
-    if (!currentLead) return;
-    setIsResetting(true);
-    try {
-      await resetLead({ leadId: currentLead.id });
-      await logAuditEvent({
-        userEmail: currentUser.email,
-        userName: currentUser.displayName || currentUser.proName,
-        action: 'Reset Lead',
-        leadId: currentLead.id,
-        details: `Reset lead: ${currentLead.customerName} (${currentLead.opportunityName})`,
-      });
-      toast.success('Lead has been reset successfully');
-      setShowResetConfirm(false);
-      onRefresh();
-      onClose();
-    } catch (error) {
-      console.error('Error resetting lead:', error);
-      toast.error('Failed to reset lead');
-    } finally {
-      setIsResetting(false);
-    }
   };
 
   const handleGetAiSuggestion = async () => {
@@ -220,14 +193,11 @@ export default function LeadDetails({
           <div className="flex-1 min-h-0 overflow-y-auto -mx-6 px-6 pb-2">
             <Tabs defaultValue="overview" className="w-full">
               <TabsList
-                className={`grid w-full sticky top-0 z-10 ${currentUser.role === 'Manager' ? 'grid-cols-4' : 'grid-cols-3'} bg-muted/60 backdrop-blur-sm`}
+                className={`grid w-full sticky top-0 z-10 grid-cols-3 bg-muted/60 backdrop-blur-sm`}
               >
                 <TabsTrigger value="overview" className={detailTabClass}>Overview</TabsTrigger>
                 <TabsTrigger value="moreinfo" className={detailTabClass}>More Info</TabsTrigger>
                 <TabsTrigger value="activities" className={detailTabClass}>Activities</TabsTrigger>
-                {currentUser.role === 'Manager' && (
-                  <TabsTrigger value="admin" className={detailTabClass}>Admin</TabsTrigger>
-                )}
               </TabsList>
 
               {/* ── Overview ── */}
@@ -386,38 +356,6 @@ export default function LeadDetails({
                 />
               </TabsContent>
 
-              {/* ── Admin ── */}
-              {currentUser.role === 'Manager' && (
-                <TabsContent value="admin" className={TAB_PANE}>
-                  <Card className="border-destructive/30">
-                    <CardContent className="p-4 space-y-3">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-destructive flex items-center gap-1.5">
-                        <RefreshCw className="h-3.5 w-3.5" /> Admin Functions
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        These actions are only available to managers and should be used with caution.
-                      </p>
-                      <div className="space-y-2 pt-1">
-                        <p className="text-sm font-medium">Reset Lead</p>
-                        <p className="text-sm text-muted-foreground">
-                          This will reset the lead assignment and status, making it available for reassignment.
-                          This action triggers the automated reset process in Airtable.
-                        </p>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          className="mt-1"
-                          onClick={() => setShowResetConfirm(true)}
-                          disabled={isResetting}
-                        >
-                          <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isResetting ? 'animate-spin' : ''}`} />
-                          {isResetting ? 'Resetting...' : 'Reset Lead'}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              )}
             </Tabs>
           </div>
         </DialogContent>
@@ -455,27 +393,6 @@ export default function LeadDetails({
         />
       )}
 
-      <AlertDialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Reset Lead</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to reset this lead? This will trigger the automated reset process
-              in Airtable, which will reset the lead assignment and status. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isResetting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleResetLead}
-              disabled={isResetting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {isResetting ? 'Resetting...' : 'Reset Lead'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }

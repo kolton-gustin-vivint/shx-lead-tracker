@@ -7,13 +7,10 @@ import deleteCompensation from './deleteCompensation';
 import deleteSelfGenActivity from './deleteSelfGenActivity';
 import generateAiSummary from './generateAiSummary';
 import getActivities from './getActivities';
-import getAdminStats from './getAdminStats';
 import getClosedLeads from './getClosedLeads';
 import getCompensation from './getCompensation';
-import getLeadCount from './getLeadCount';
 import getLeads from './getLeads';
 import getLeadStats from './getLeadStats';
-import getLoginReport from './getLoginReport';
 import getMyProfile from './getMyProfile';
 import getReps from './getReps';
 import getRunningTotals from './getRunningTotals';
@@ -21,13 +18,7 @@ import getSelfGenActivities from './getSelfGenActivities';
 import getStatusOptions from './getStatusOptions';
 import logAuditEvent from './logAuditEvent';
 import recordLogin from './recordLogin';
-import refreshAdminStats from './refreshAdminStats';
-import resetLead from './resetLead';
 import suggestNextAction from './suggestNextAction';
-import triggerDistributeLeads from './triggerDistributeLeads';
-import triggerLoadLeadsForPro from './triggerLoadLeadsForPro';
-import triggerMarkLeftoverLeads from './triggerMarkLeftoverLeads';
-import triggerProcessNewUploads from './triggerProcessNewUploads';
 import updateActivity from './updateActivity';
 import updateLead from './updateLead';
 import updateSelfGenActivity from './updateSelfGenActivity';
@@ -40,13 +31,10 @@ export const endpoints = {
   deleteSelfGenActivity,
   generateAiSummary,
   getActivities,
-  getAdminStats,
   getClosedLeads,
   getCompensation,
-  getLeadCount,
   getLeads,
   getLeadStats,
-  getLoginReport,
   getMyProfile,
   getReps,
   getRunningTotals,
@@ -54,13 +42,7 @@ export const endpoints = {
   getStatusOptions,
   logAuditEvent,
   recordLogin,
-  refreshAdminStats,
-  resetLead,
   suggestNextAction,
-  triggerDistributeLeads,
-  triggerLoadLeadsForPro,
-  triggerMarkLeftoverLeads,
-  triggerProcessNewUploads,
   updateActivity,
   updateLead,
   updateSelfGenActivity,

@@ -1,30 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import LeadsTab from './LeadsTab';
 import ClosedLeadsTab from './ClosedLeadsTab';
-import UnassignedLeadsTab from './UnassignedLeadsTab';
 import CompensationTab from './CompensationTab';
-import AdminTab from './AdminTab';
 import SelfGenTab from './SelfGenTab';
-import TeamTab from './TeamTab';
-import LoginReportTab from './LoginReportTab';
 import AppSidebar from './AppSidebar';
 import MobileNav from './MobileNav';
 import ProxyIndicator from './ProxyIndicator';
 import { useProxy } from '../contexts/ProxyContext';
 import { useSession } from '@FO-Enablement-Vivint/magistrate/next';
-
-interface AuthenticatedUser {
-  id: string;
-  email: string;
-  proId: string | undefined;
-  proName: string;
-  displayName: string;
-  role: string;
-}
-
-interface LeadsDashboardProps {
-  user: AuthenticatedUser;
-}
 
 // The active tab lives in the URL hash (#tab=compensation) so a refresh, a
 // bookmark, or the back button lands on the same tab. This component only
@@ -38,14 +21,12 @@ function readTabFromHash(): string {
   return hash.startsWith(TAB_HASH_PREFIX) ? decodeURIComponent(hash.slice(TAB_HASH_PREFIX.length)) : 'leads';
 }
 
-export default function LeadsDashboard({ user }: LeadsDashboardProps) {
+export default function LeadsDashboard() {
   const {session} = useSession();
 
   const [requestedTab, setRequestedTab] = useState(readTabFromHash);
-  const { originalUser, currentUser, isProxying } = useProxy();
+  const { originalUser } = useProxy();
   const isManager = originalUser?.role === 'Manager';
-  const displayUser = currentUser || user;
-  const showUnassignedTab = isManager && !isProxying;
 
   // Follow back/forward and manual edits to the hash.
   useEffect(() => {
@@ -54,17 +35,10 @@ export default function LeadsDashboard({ user }: LeadsDashboardProps) {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  // Only tabs this user can actually see. Anything else (a stale bookmark, a
-  // Pro opening #tab=admin, Unassigned while proxying) falls back to Leads, so
-  // the sidebar highlight always matches what is rendered.
-  const visibleTabs = [
-    'leads',
-    'closed',
-    'compensation',
-    'selfgen',
-    ...(showUnassignedTab ? ['unassigned'] : []),
-    ...(isManager ? ['team', 'admin', 'logins'] : []),
-  ];
+  // Only tabs that exist. Anything else (a stale bookmark to a tab that has
+  // moved to SHX-Admin, a typo) falls back to Leads, so the sidebar highlight
+  // always matches what is rendered.
+  const visibleTabs = ['leads', 'closed', 'compensation', 'selfgen'];
   const activeTab = visibleTabs.includes(requestedTab) ? requestedTab : 'leads';
 
   // Setting the hash adds a history entry and fires `hashchange`, which
@@ -87,7 +61,6 @@ export default function LeadsDashboard({ user }: LeadsDashboardProps) {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         isManager={isManager}
-        showUnassigned={showUnassignedTab}
         displayName={displayName}
         email={email}
         initials={initials}
@@ -98,7 +71,6 @@ export default function LeadsDashboard({ user }: LeadsDashboardProps) {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         isManager={isManager}
-        showUnassigned={showUnassignedTab}
         displayName={displayName}
         email={email}
         initials={initials}
@@ -111,12 +83,7 @@ export default function LeadsDashboard({ user }: LeadsDashboardProps) {
 
         {/* Content — bottom padding for mobile nav bar */}
         <div className="flex-1 px-4 sm:px-6 py-5 pb-20 md:pb-5">
-          <TabContent
-            activeTab={activeTab}
-            isManager={isManager}
-            showUnassigned={showUnassignedTab}
-            displayUser={displayUser}
-          />
+          <TabContent activeTab={activeTab} isManager={isManager} />
         </div>
       </main>
     </div>
@@ -124,38 +91,16 @@ export default function LeadsDashboard({ user }: LeadsDashboardProps) {
 }
 
 /* Renders the active tab's content — extracted to keep the main component lean */
-function TabContent({
-  activeTab,
-  isManager,
-  showUnassigned,
-  displayUser,
-}: {
-  activeTab: string;
-  isManager: boolean;
-  showUnassigned: boolean;
-  displayUser: any;
-}) {
+function TabContent({ activeTab, isManager }: { activeTab: string; isManager: boolean }) {
   switch (activeTab) {
     case 'leads':
       return <LeadsTab isManager={isManager} />;
     case 'closed':
       return <ClosedLeadsTab isManager={isManager} />;
-    case 'unassigned':
-      return showUnassigned ? (
-        <UnassignedLeadsTab user={displayUser} isManager={isManager} />
-      ) : (
-        <LeadsTab isManager={isManager} />
-      );
     case 'compensation':
       return <CompensationTab isManager={isManager} />;
     case 'selfgen':
       return <SelfGenTab isManager={isManager} />;
-    case 'team':
-      return isManager ? <TeamTab /> : <LeadsTab isManager={isManager} />;
-    case 'admin':
-      return isManager ? <AdminTab /> : <LeadsTab isManager={isManager} />;
-    case 'logins':
-      return isManager ? <LoginReportTab /> : <LeadsTab isManager={isManager} />;
     default:
       return <LeadsTab isManager={isManager} />;
   }
