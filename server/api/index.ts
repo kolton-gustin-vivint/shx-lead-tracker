@@ -28,6 +28,7 @@ import assignLead from './assignLead';
 import getAdminStats from './getAdminStats';
 import getLoginReport from './getLoginReport';
 import getUnassignedLeads from './getUnassignedLeads';
+import loadNewCap from './loadNewCap';
 import refreshAdminStats from './refreshAdminStats';
 import triggerDistributeLeads from './triggerDistributeLeads';
 import triggerLoadLeadsForPro from './triggerLoadLeadsForPro';
@@ -44,6 +45,7 @@ const managerEndpoints = {
   getAdminStats,
   getLoginReport,
   getUnassignedLeads,
+  loadNewCap,
   refreshAdminStats,
   triggerDistributeLeads,
   triggerLoadLeadsForPro,

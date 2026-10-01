@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "schema:generate": "tsx scripts/generate-airtable-schema.ts",
     "db:check": "tsx scripts/check-login-log.ts",
-    "auth:check": "tsx scripts/check-roster-gate.ts"
+    "auth:check": "tsx scripts/check-roster-gate.ts",
+    "zips:sync": "tsx --env-file=.env scripts/sync-zip-centroids.ts",
+    "leads:undo": "tsx --env-file=.env scripts/undo-lead-load.ts"
   },
   "dependencies": {
     "@FO-Enablement-Vivint/magistrate": "^1.0.6",

@@ -5,6 +5,7 @@ import { api, errorMessage } from '@/manage/api';
 import { Spinner } from '@/manage/ManageLoading';
 import { useCardMode } from '@/manage/useCardMode';
 import { formatCurrency } from '@/manage/format';
+import LoadNewCapDialog from '@/manage/LoadNewCapDialog';
 
 type Pro = {
   id: string;
@@ -20,7 +21,8 @@ type Pro = {
 };
 
 // The SHX Team record buttons from Airtable, ordered everyday → destructive.
-// Only Load Leads is wired up; the rest are layout placeholders for now.
+// Load NEW CAP runs in the app; Load Leads still calls the old trigger; the
+// rest are layout placeholders for now.
 const ACTIONS = [
   { key: 'loadLeads', label: 'Load Leads', variant: 'blue' },
   { key: 'loadNewCap', label: 'Load NEW CAP', variant: 'cyan' },
@@ -42,6 +44,7 @@ export default function TeamPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [loadNewCapFor, setLoadNewCapFor] = useState<Pro | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -68,6 +71,7 @@ export default function TeamPage() {
 
   const runAction = (key: ActionKey, pro: Pro) => {
     if (key === 'loadLeads') return loadLeads(pro);
+    if (key === 'loadNewCap') { setError(null); setNotice(null); return setLoadNewCapFor(pro); }
     const label = ACTIONS.find(a => a.key === key)?.label;
     setError(null);
     setNotice(`${label} isn't connected yet — layout only for now.`);
@@ -162,6 +166,14 @@ export default function TeamPage() {
         </table>
       </div>
       <p className="muted">{shown.length} of {pros.length} Pros</p>
+      {loadNewCapFor && (
+        <LoadNewCapDialog
+          pro={{ id: loadNewCapFor.id, name: loadNewCapFor.displayName || loadNewCapFor.proName || 'Rep' }}
+          defaultCap={loadNewCapFor.dailyCap ?? 10}
+          onClose={() => setLoadNewCapFor(null)}
+          onAssigned={message => { setLoadNewCapFor(null); setNotice(message); load(); }}
+        />
+      )}
     </>
   );
 }

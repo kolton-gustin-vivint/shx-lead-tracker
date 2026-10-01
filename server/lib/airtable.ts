@@ -123,6 +123,12 @@ export interface FindAllOptions {
    * megabytes per page — so pass this when you only need a few.
    */
   fields?: string[];
+  /**
+   * A raw Airtable formula ANDed with `filters`, for conditions the filter
+   * object can't express. Uses Airtable field NAMES, not keys. Build string
+   * literals with `airtableString()` — never interpolate raw input.
+   */
+  formula?: string;
 }
 
 export interface FindAllResult<T> {
@@ -153,6 +159,11 @@ function isNotFound(err: unknown): boolean {
 const ID_CURSOR_PREFIX = 'ids:';
 const MAX_PAGE = 100;
 
+/** A safely quoted Airtable formula string literal, e.g. airtableString("O'Neil") → "O'Neil". */
+export function airtableString(v: string): string {
+  return quote(v);
+}
+
 function quote(v: string): string {
   return `"${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
@@ -181,6 +192,12 @@ export interface TableClient<T extends { id: string }> {
   findOne(options?: { id?: string; filters?: Filters }): Promise<T | null>;
   create(options: { record: Partial<Omit<T, 'id' | 'createdTime'>> & Record<string, unknown> }): Promise<T>;
   update(options: { id: string; record: Partial<Omit<T, 'id' | 'createdTime'>> & Record<string, unknown> }): Promise<T>;
+  /**
+   * Updates many records, 10 per request (Airtable's maximum). Chunks run in
+   * order; if one fails, earlier chunks are already saved — callers that need
+   * to recover should snapshot first.
+   */
+  updateMany(updates: Array<{ id: string; record: Partial<Omit<T, 'id' | 'createdTime'>> & Record<string, unknown> }>): Promise<T[]>;
   delete(options: { id: string }): Promise<{ id: string; deleted: boolean }>;
 }
 
@@ -361,6 +378,7 @@ export function defineTable<T extends { id: string }>(def: TableDef): TableClien
 
     const searchFormula = searchAnyFormula(options.searchAny);
     if (searchFormula) formulaParts.push(searchFormula);
+    if (options.formula) formulaParts.push(options.formula);
 
     // Plain query: Airtable's own cursor is the offset.
     if (idSet === null) {
@@ -434,9 +452,22 @@ export function defineTable<T extends { id: string }>(def: TableDef): TableClien
     return fromAirtable(raw);
   }
 
+  async function updateMany(updates: Array<{ id: string; record: Record<string, unknown> }>): Promise<T[]> {
+    const out: T[] = [];
+    for (let i = 0; i < updates.length; i += 10) {
+      const chunk = updates.slice(i, i + 10);
+      const raw = await request<{ records: RawRecord[] }>('PATCH', tablePath, {
+        records: chunk.map(u => ({ id: u.id, fields: toAirtable(u.record) })),
+        typecast: true,
+      });
+      out.push(...raw.records.map(fromAirtable));
+    }
+    return out;
+  }
+
   async function del(options: { id: string }): Promise<{ id: string; deleted: boolean }> {
     return request<{ id: string; deleted: boolean }>('DELETE', `${tablePath}/${encodeURIComponent(options.id)}`);
   }
 
-  return { def, findAll, findOne, create: create as TableClient<T>['create'], update: update as TableClient<T>['update'], delete: del };
+  return { def, findAll, findOne, create: create as TableClient<T>['create'], update: update as TableClient<T>['update'], updateMany: updateMany as TableClient<T>['updateMany'], delete: del };
 }
