@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, errorMessage } from '@/manage/api';
 import { Spinner } from '@/manage/ManageLoading';
+import { useCardMode } from '@/manage/useCardMode';
 import { formatCurrency } from '@/manage/format';
 
 type Pro = {
@@ -34,6 +35,7 @@ type ActionKey = (typeof ACTIONS)[number]['key'];
 const atCap = (p: Pro) => p.activeCap != null && (p.activeLeadCount ?? 0) >= p.activeCap;
 
 export default function TeamPage() {
+  const { ref: tableRef, cards } = useCardMode();
   const [pros, setPros] = useState<Pro[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -103,8 +105,8 @@ export default function TeamPage() {
       {error && <p className="error">{error}</p>}
       {notice && <p className="ok">{notice}</p>}
 
-      <div className="table-wrap">
-        <table>
+      <div className={`table-wrap${cards ? ' as-cards' : ''}`} ref={tableRef}>
+        <table className="cards cards-3">
           <thead>
             <tr>
               <th>Name</th>
@@ -124,21 +126,22 @@ export default function TeamPage() {
             ) : (
               shown.map(p => (
                 <tr key={p.id}>
-                  <td>
+                  <td className="card-title">
                     <div>{p.displayName || p.proName}</div>
                     <div className="muted">{p.email}</div>
                   </td>
                   <td
+                    data-label="Active"
                     className={`num${atCap(p) ? ' at-cap' : !p.activeLeadCount ? ' zero' : ''}`}
                     title={atCap(p) ? 'At or over their active lead cap' : undefined}
                   >
                     {p.activeLeadCount ?? 0}
                   </td>
-                  <td className={`num${!p.todaysLeads ? ' zero' : ''}`}>{p.todaysLeads ?? 0}</td>
-                  <td className="num">{p.activeCap ?? '—'}</td>
-                  <td className="num">{p.dailyCap ?? '—'}</td>
-                  <td className={`num${!p.runningCompTotal ? ' zero' : ''}`}>{formatCurrency(p.runningCompTotal)}</td>
-                  <td className="actions-col">
+                  <td data-label="Today" className={`num${!p.todaysLeads ? ' zero' : ''}`}>{p.todaysLeads ?? 0}</td>
+                  <td data-label="Active cap" className="num">{p.activeCap ?? '—'}</td>
+                  <td data-label="Daily cap" className="num">{p.dailyCap ?? '—'}</td>
+                  <td data-label="Comp" className={`num${!p.runningCompTotal ? ' zero' : ''}`}>{formatCurrency(p.runningCompTotal)}</td>
+                  <td className="actions-col card-wide">
                     <div className="actions">
                       {ACTIONS.map(action => (
                         <button

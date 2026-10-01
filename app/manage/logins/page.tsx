@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, errorMessage, type OutputOf } from '@/manage/api';
 import { Spinner } from '@/manage/ManageLoading';
+import { useCardMode } from '@/manage/useCardMode';
 import { describeAge, parseDateValue } from '@/manage/format';
 
 type Row = OutputOf<'getLoginReport'>['teamLogins'][number];
@@ -10,6 +11,7 @@ type Row = OutputOf<'getLoginReport'>['teamLogins'][number];
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 export default function LoginsPage() {
+  const { ref: tableRef, cards } = useCardMode();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,8 +59,8 @@ export default function LoginsPage() {
         <div className="stat"><span className="muted">Never logged in</span><b>{never}</b></div>
       </div>
 
-      <div className="table-wrap">
-        <table>
+      <div className={`table-wrap${cards ? ' as-cards' : ''}`} ref={tableRef}>
+        <table className="cards cards-3">
           <thead>
             <tr>
               <th>Name</th>
@@ -77,12 +79,12 @@ export default function LoginsPage() {
                 const parsed = r.lastLogin ? parseDateValue(r.lastLogin) : null;
                 return (
                   <tr key={r.airtableId}>
-                    <td>
+                    <td className="card-title">
                       <div>{r.displayName || r.proName}</div>
                       <div className="muted">{r.email}</div>
                     </td>
-                    <td>{r.role}</td>
-                    <td>
+                    <td data-label="Role">{r.role}</td>
+                    <td data-label="Last login">
                       {parsed ? (
                         <>
                           <div>{parsed.date.toLocaleDateString()}</div>
@@ -92,7 +94,7 @@ export default function LoginsPage() {
                         <span className="muted">Never</span>
                       )}
                     </td>
-                    <td className="num">{r.loginCount30d}</td>
+                    <td data-label="Logins (30d)" className="num">{r.loginCount30d}</td>
                   </tr>
                 );
               })

@@ -27,6 +27,10 @@
   --m-primary-hover: hsl(145 55% 52%);
   --m-primary-text: hsl(145 55% 62%);
   --m-on-primary: hsl(150 40% 7%);
+  /* The SHX logo chip: the Lead Tracker's exact brand green, with near-black
+     text (the same dark as the buttons) instead of the Lead Tracker's white. */
+  --m-brand: hsl(145 50% 38%);
+  --m-on-brand: hsl(150 40% 7%);
   --m-danger: hsl(0 78% 68%);
   --m-danger-bg: hsl(0 40% 13%);
   --m-radius: 12px;
@@ -296,21 +300,7 @@
   --m-fill: hsl(350 75% 40%); --m-tone: hsl(350 90% 76%); --m-on-fill: #fff;
 }
 
-.manage th.actions-col, .manage td.actions-col {
-  position: sticky; right: 0; z-index: 1;
-  background: var(--m-surface);
-  box-shadow: -8px 0 12px -8px rgb(0 0 0 / 0.5);
-}
 
-.manage th.actions-col {
-  z-index: 3;
-}
-
-.manage tbody tr:hover td.actions-col {
-  background: var(--m-row-hover);
-}
-
-.manage .back-link:hover { background: var(--m-header-border); text-decoration: none; }
 
 /* ── Layout: sidebar like the Lead Tracker (AppSidebar / MobileNav) ───── */
 .manage.manage-layout { display: flex; min-height: 100vh; }
@@ -331,11 +321,12 @@
 .manage .logo {
   display: inline-grid; place-items: center; flex-shrink: 0;
   height: 32px; width: 32px; border-radius: 8px;
-  background: var(--m-primary); color: var(--m-on-primary);
-  font-size: 12px; font-weight: 800;
+  background: var(--m-brand); color: var(--m-on-brand);
+  font-size: 14px; font-weight: 700;
 }
-.manage .logo-sm { height: 28px; width: 28px; font-size: 11px; border-radius: 7px; }
-.manage .sidebar-title { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.manage .logo-sm { height: 28px; width: 28px; font-size: 12px; border-radius: 7px; }
+/* Lead Tracker: font-bold text-base in the header foreground colour */
+.manage .sidebar-title { font-weight: 700; font-size: 16px; color: var(--m-header-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .manage .sidebar-nav { flex: 1; overflow-y: auto; padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; }
 .manage .sidebar-item {
@@ -440,4 +431,79 @@
 @keyframes m-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
   .manage .loader-arc, .manage .spinner { animation-duration: 2.4s; }
+}
+
+/* ── Table mode: honest minimum widths ──────────────────────────────── */
+/* So a table can't "fit" by crushing names; useCardMode then sees the real
+   width it needs and switches to cards instead. */
+.manage table.cards td.card-title { min-width: 200px; }
+.manage table.cards td.num { white-space: nowrap; }
+
+/* ── Card mode (useCardMode adds .as-cards when the table doesn't fit) ── */
+/* Each <td> carries a data-label; .card-title spans the top, .card-wide the
+   bottom. Cards flow into as many columns as fit; the page scrolls normally. */
+.manage .table-wrap.as-cards {
+  max-height: none; overflow: visible;
+  background: transparent; border: 0; box-shadow: none;
+}
+.manage .as-cards table.cards { display: block; }
+.manage .as-cards table.cards thead { display: none; }
+.manage .as-cards table.cards tbody {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+}
+.manage .as-cards table.cards tr {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px;
+  align-content: start;
+  padding: 14px 16px;
+  background: var(--m-surface);
+  border: 1px solid var(--m-border); border-radius: var(--m-radius);
+  box-shadow: var(--m-shadow);
+}
+.manage .as-cards table.cards-3 tr { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.manage .as-cards table.cards tr:has(td[colspan]) { grid-column: 1 / -1; }
+
+.manage .as-cards table.cards td {
+  display: block; padding: 0; border: 0; text-align: left;
+  background: transparent !important;
+  min-width: 0; overflow-wrap: anywhere;
+}
+.manage .as-cards table.cards td[data-label]::before {
+  content: attr(data-label); display: block; margin-bottom: 2px;
+  font-size: 10.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--m-muted);
+}
+.manage .as-cards table.cards td.card-title,
+.manage .as-cards table.cards td.card-wide,
+.manage .as-cards table.cards td[colspan] { grid-column: 1 / -1; }
+.manage .as-cards table.cards td.card-title { min-width: 0; }
+.manage .as-cards table.cards td.card-title > div:first-child { font-size: 15.5px; font-weight: 600; }
+.manage .as-cards table.cards td.card-wide { padding-top: 12px; border-top: 1px solid var(--m-border); }
+.manage .as-cards table.cards td.num { font-size: 15px; font-weight: 500; white-space: normal; }
+.manage .as-cards table.cards td[colspan] { text-align: center; padding: 24px 0; }
+
+/* Team: six actions as a 2-column grid of touch-sized buttons */
+.manage .as-cards .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.manage .as-cards .btn-sm { height: 40px; font-size: 13px; white-space: normal; line-height: 1.2; }
+
+/* Unassigned: rep picker + Assign button span the card */
+.manage .as-cards .assign select { flex: 1; min-width: 0; height: 42px; }
+.manage .as-cards .assign button { height: 42px; }
+
+/* ── Phones: page chrome ──────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  /* Page header: title, then search + Refresh full width */
+  .manage main > .row:first-child { align-items: stretch; }
+  .manage main > .row:first-child > .spacer { display: none; }
+  .manage main > .row:first-child > div:first-child { flex-basis: 100%; }
+  .manage main > .row:first-child > input[type='search'] { flex: 1; height: 40px; }
+  .manage main > .row:first-child > button { height: 40px; }
+
+  .manage .pager { justify-content: space-between; }
+  .manage .pager button { height: 40px; }
+
+  /* Stat tiles two-up instead of one per row */
+  .manage .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .manage .stat { padding: 12px 14px; }
+  .manage .stat b { font-size: 22px; }
 }

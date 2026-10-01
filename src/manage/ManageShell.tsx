@@ -61,9 +61,9 @@ export default function ManageShell({ name, email, children }: { name: string; e
 
         <div className="sidebar-section">
           {/* A full page load, so the Pro app starts fresh. */}
-          <a className="sidebar-back" href="/" onClick={leave}>
+          <a className="sidebar-back" href="/" onClick={leave} title="Back to the Lead Tracker">
             <ArrowLeft size={16} />
-            Back to Lead Tracker
+            Lead Tracker
           </a>
         </div>
 

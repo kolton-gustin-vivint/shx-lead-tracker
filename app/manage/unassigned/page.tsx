@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, errorMessage, type OutputOf } from '@/manage/api';
 import { Spinner } from '@/manage/ManageLoading';
+import { useCardMode } from '@/manage/useCardMode';
 import { formatDate } from '@/manage/format';
 
 type Lead = OutputOf<'getUnassignedLeads'>['leads'][number];
@@ -11,6 +12,7 @@ type Rep = { id: string; name: string };
 const PAGE_SIZE = 50;
 
 export default function UnassignedPage() {
+  const { ref: tableRef, cards } = useCardMode();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [reps, setReps] = useState<Rep[]>([]);
   const [choice, setChoice] = useState<Record<string, string>>({});
@@ -100,8 +102,8 @@ export default function UnassignedPage() {
       {error && <p className="error">{error}</p>}
       {notice && <p className="ok">{notice}</p>}
 
-      <div className="table-wrap">
-        <table>
+      <div className={`table-wrap${cards ? ' as-cards' : ''}`} ref={tableRef}>
+        <table className="cards cards-2">
           <thead>
             <tr>
               <th>Customer</th>
@@ -120,18 +122,18 @@ export default function UnassignedPage() {
             ) : (
               leads.map(lead => (
                 <tr key={lead.id}>
-                  <td>
+                  <td className="card-title">
                     <div>{lead.customerName || '—'}</div>
                     <div className="muted">{lead.opportunityName}</div>
                   </td>
-                  <td>{[lead.city, lead.state].filter(Boolean).join(', ')} {lead.zip}</td>
-                  <td>
+                  <td data-label="Location">{[lead.city, lead.state].filter(Boolean).join(', ')} {lead.zip}</td>
+                  <td data-label="District / office">
                     <div>{lead.district || '—'}</div>
                     <div className="muted">{lead.salesOffice}</div>
                   </td>
-                  <td>{lead.leadSource || '—'}</td>
-                  <td>{formatDate(lead.dateAdded)}</td>
-                  <td>
+                  <td data-label="Source">{lead.leadSource || '—'}</td>
+                  <td data-label="Added">{formatDate(lead.dateAdded)}</td>
+                  <td className="card-wide">
                     <div className="row assign">
                       <select value={choice[lead.id] ?? ''} onChange={e => setChoice(c => ({ ...c, [lead.id]: e.target.value }))}>
                         <option value="">Choose a rep…</option>
