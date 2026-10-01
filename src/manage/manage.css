@@ -1,0 +1,443 @@
+/*
+ * Manager View theme (/manage) — dark sibling of the Lead Tracker's forest green.
+ * Ported from shx-leader-dash. EVERY rule is scoped under .manage and every
+ * custom property is --m-*, so nothing here can restyle the Pro app or clash
+ * with Tailwind/shadcn tokens (--primary, --muted, --border, …).
+ */
+
+.manage {
+  min-height: 100vh;
+  color-scheme: dark;
+  /* Neutral slate surfaces */
+  --m-bg: hsl(222 18% 7%);
+  --m-surface: hsl(222 14% 11%);
+  --m-surface-2: hsl(222 12% 14%);
+  --m-row-hover: hsl(222 12% 13.5%);
+  --m-border: hsl(220 13% 19%);
+  --m-border-strong: hsl(220 12% 25%);
+  --m-text: hsl(220 20% 94%);
+  --m-muted: hsl(220 9% 63%);
+  /* Header — the Lead Tracker's header tokens */
+  --m-header-bg: hsl(150 35% 14%);
+  --m-header-border: hsl(150 25% 22%);
+  --m-header-text: hsl(145 20% 95%);
+  --m-header-muted: hsl(145 12% 62%);
+  /* Brand green */
+  --m-primary: hsl(145 55% 46%);
+  --m-primary-hover: hsl(145 55% 52%);
+  --m-primary-text: hsl(145 55% 62%);
+  --m-on-primary: hsl(150 40% 7%);
+  --m-danger: hsl(0 78% 68%);
+  --m-danger-bg: hsl(0 40% 13%);
+  --m-radius: 12px;
+  --m-radius-sm: 8px;
+  --m-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 16px rgb(0 0 0 / 0.25);
+  background: var(--m-bg);
+  margin: 0;
+  background: var(--m-bg);
+  color: var(--m-text);
+  font: 14px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.manage, .manage * {
+  box-sizing: border-box;
+}
+
+.manage a {
+  color: var(--m-primary-text); text-decoration: none;
+}
+
+.manage a:hover {
+  text-decoration: underline;
+}
+
+.manage h1 {
+  font-size: 22px; font-weight: 650; letter-spacing: -0.01em; margin: 0 0 2px;
+}
+
+.manage h2 {
+  font-size: 15px; font-weight: 600; margin: 0 0 4px;
+}
+
+.manage p {
+  margin: 0;
+}
+
+.manage .muted {
+  color: var(--m-muted);
+}
+
+.manage main > .row:first-child {
+  margin-bottom: 20px !important; align-items: flex-end; gap: 12px;
+}
+
+.manage main > h1 + p {
+  margin-bottom: 20px !important;
+}
+
+.manage .centered {
+  min-height: 100vh; display: grid; place-content: center; gap: 6px; text-align: center; padding: 16px; max-width: 520px; margin: 0 auto;
+}
+
+.manage .row {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+}
+
+.manage .spacer {
+  flex: 1;
+}
+
+.manage .card, .manage .stat, .manage .table-wrap {
+  background: var(--m-surface);
+  border: 1px solid var(--m-border);
+  border-radius: var(--m-radius);
+  box-shadow: var(--m-shadow);
+}
+
+.manage .card {
+  padding: 16px 18px; margin-bottom: 12px;
+}
+
+.manage .stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 20px;
+}
+
+.manage .stat {
+  padding: 14px 16px;
+}
+
+.manage .stat .muted {
+  font-size: 12px; font-weight: 500;
+}
+
+.manage .stat b {
+  display: block; margin-top: 4px; font-size: 26px; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+}
+
+.manage .error, .manage .ok {
+  padding: 10px 14px; margin: 0 0 14px;
+  border-radius: var(--m-radius-sm); border: 1px solid var(--m-border);
+  border-left-width: 3px; background: var(--m-surface);
+}
+
+.manage .error {
+  color: var(--m-danger); background: var(--m-danger-bg); border-color: hsl(0 40% 24%); border-left-color: var(--m-danger);
+}
+
+.manage .ok {
+  color: var(--m-text); border-left-color: var(--m-primary);
+}
+
+.manage button, .manage select, .manage input {
+  font: inherit; color: inherit;
+}
+
+.manage button {
+  height: 34px; padding: 0 14px;
+  border-radius: var(--m-radius-sm);
+  border: 1px solid transparent;
+  background: var(--m-primary); color: var(--m-on-primary);
+  font-weight: 600; white-space: nowrap; cursor: pointer;
+  transition: background .15s, transform .05s;
+}
+
+.manage button:hover:not(:disabled) {
+  background: var(--m-primary-hover);
+}
+
+.manage button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.manage button:disabled {
+  opacity: 0.4; cursor: default;
+}
+
+.manage select, .manage input {
+  height: 34px; padding: 0 10px;
+  border-radius: var(--m-radius-sm);
+  border: 1px solid var(--m-border-strong);
+  background: var(--m-surface-2);
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.manage select:hover, .manage input:hover {
+  border-color: hsl(220 12% 32%);
+}
+
+.manage input::placeholder {
+  color: var(--m-muted);
+}
+
+.manage input[type='search'] {
+  min-width: 260px;
+}
+
+.manage select:focus-visible, .manage input:focus-visible, .manage button:focus-visible, .manage a:focus-visible {
+  outline: none;
+  border-color: var(--m-primary);
+  box-shadow: 0 0 0 3px hsl(145 55% 46% / 0.25);
+}
+
+.manage .table-wrap {
+  overflow: auto; max-height: calc(100vh - 150px);
+}
+
+.manage table {
+  width: 100%; border-collapse: collapse;
+}
+
+.manage th, .manage td {
+  text-align: left; padding: 9px 16px; vertical-align: middle;
+}
+
+.manage th {
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--m-muted);
+  background: var(--m-surface);
+  border-bottom: 1px solid var(--m-border);
+  white-space: nowrap;
+  position: sticky; top: 0; z-index: 2;
+}
+
+.manage td {
+  border-bottom: 1px solid var(--m-border);
+}
+
+.manage td > div:first-child:not(.row) {
+  font-weight: 500;
+}
+
+.manage td .muted {
+  font-size: 12.5px;
+}
+
+.manage tbody tr {
+  transition: background .1s;
+}
+
+.manage tbody tr:hover td {
+  background: var(--m-row-hover);
+}
+
+.manage tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.manage td.num, .manage th.num {
+  text-align: right; font-variant-numeric: tabular-nums;
+}
+
+.manage td.zero {
+  color: hsl(220 9% 54%);
+}
+
+.manage td.at-cap {
+  color: hsl(40 95% 62%); font-weight: 600;
+}
+
+.manage td.muted[colspan] {
+  text-align: center; padding: 32px 16px;
+}
+
+.manage .pager {
+  display: flex; gap: 10px; align-items: center; justify-content: flex-end; padding: 14px 2px;
+}
+
+.manage .pager .muted {
+  font-size: 13px; font-variant-numeric: tabular-nums;
+}
+
+.manage .assign {
+  flex-wrap: nowrap;
+}
+
+.manage .assign select {
+  min-width: 200px;
+}
+
+.manage .actions {
+  display: flex; flex-wrap: nowrap; gap: 6px;
+}
+
+.manage .btn-sm {
+  height: 28px; padding: 0 10px; font-size: 12.5px; font-weight: 600; border-radius: 7px;
+  color: var(--m-tone);
+  background: color-mix(in srgb, var(--m-fill) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--m-fill) 42%, transparent);
+}
+
+.manage .btn-sm:hover:not(:disabled) {
+  background: var(--m-fill); color: var(--m-on-fill); border-color: var(--m-fill);
+}
+
+.manage .btn-blue {
+  --m-fill: hsl(217 80% 48%); --m-tone: hsl(217 90% 75%); --m-on-fill: #fff;
+}
+
+.manage .btn-cyan {
+  --m-fill: hsl(192 80% 52%); --m-tone: hsl(190 85% 68%); --m-on-fill: hsl(220 30% 8%);
+}
+
+.manage .btn-amber {
+  --m-fill: hsl(42 95% 52%);  --m-tone: hsl(43 95% 65%);  --m-on-fill: hsl(220 30% 8%);
+}
+
+.manage .btn-orange {
+  --m-fill: hsl(18 85% 38%);  --m-tone: hsl(20 90% 70%);  --m-on-fill: #fff;
+}
+
+.manage .btn-gray {
+  --m-fill: hsl(220 9% 38%);  --m-tone: hsl(220 12% 78%); --m-on-fill: #fff;
+}
+
+.manage .btn-red {
+  --m-fill: hsl(350 75% 40%); --m-tone: hsl(350 90% 76%); --m-on-fill: #fff;
+}
+
+.manage th.actions-col, .manage td.actions-col {
+  position: sticky; right: 0; z-index: 1;
+  background: var(--m-surface);
+  box-shadow: -8px 0 12px -8px rgb(0 0 0 / 0.5);
+}
+
+.manage th.actions-col {
+  z-index: 3;
+}
+
+.manage tbody tr:hover td.actions-col {
+  background: var(--m-row-hover);
+}
+
+.manage .back-link:hover { background: var(--m-header-border); text-decoration: none; }
+
+/* ── Layout: sidebar like the Lead Tracker (AppSidebar / MobileNav) ───── */
+.manage.manage-layout { display: flex; min-height: 100vh; }
+.manage .manage-main { flex: 1; min-width: 0; padding: 20px 24px 32px; }
+
+.manage .sidebar {
+  width: 208px; flex-shrink: 0;
+  display: flex; flex-direction: column;
+  position: sticky; top: 0; height: 100vh;
+  background: var(--m-header-bg);
+  border-right: 1px solid var(--m-header-border);
+  color: var(--m-header-text);
+}
+.manage .sidebar-logo {
+  display: flex; align-items: center; gap: 10px;
+  padding: 16px; border-bottom: 1px solid var(--m-header-border);
+}
+.manage .logo {
+  display: inline-grid; place-items: center; flex-shrink: 0;
+  height: 32px; width: 32px; border-radius: 8px;
+  background: var(--m-primary); color: var(--m-on-primary);
+  font-size: 12px; font-weight: 800;
+}
+.manage .logo-sm { height: 28px; width: 28px; font-size: 11px; border-radius: 7px; }
+.manage .sidebar-title { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.manage .sidebar-nav { flex: 1; overflow-y: auto; padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; }
+.manage .sidebar-item {
+  position: relative;
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; border-radius: 6px;
+  font-size: 14px; font-weight: 500;
+  color: var(--m-header-muted); text-decoration: none;
+  transition: color .15s, background .15s;
+}
+.manage .sidebar-item:hover { color: var(--m-header-text); background: hsl(150 25% 22% / 0.5); text-decoration: none; }
+.manage .sidebar-item.active { color: var(--m-header-text); background: var(--m-header-border); }
+.manage .sidebar-item.active::before {
+  content: ''; position: absolute; left: 0; top: 6px; bottom: 6px;
+  width: 3px; border-radius: 0 999px 999px 0; background: var(--m-primary);
+}
+
+.manage .sidebar-section { padding: 10px 12px; border-top: 1px solid var(--m-header-border); }
+.manage .sidebar-back {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 8px 12px; border-radius: 6px;
+  font-size: 14px; font-weight: 600; text-decoration: none;
+  color: var(--m-header-text);
+  border: 1px solid var(--m-header-border);
+  transition: background .15s;
+}
+.manage .sidebar-back:hover { background: var(--m-header-border); text-decoration: none; }
+
+.manage .sidebar-user {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px; border-top: 1px solid var(--m-header-border);
+}
+.manage .avatar {
+  display: inline-grid; place-items: center; flex-shrink: 0;
+  height: 32px; width: 32px; border-radius: 999px;
+  background: var(--m-primary); color: var(--m-on-primary);
+  font-size: 12px; font-weight: 700;
+}
+.manage .avatar-sm { height: 28px; width: 28px; font-size: 11px; }
+.manage .sidebar-user-text { min-width: 0; flex: 1; }
+.manage .sidebar-user-name { font-size: 12px; font-weight: 500; color: var(--m-header-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.manage .sidebar-user-email { font-size: 10.5px; color: var(--m-header-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Mobile chrome is hidden on desktop */
+.manage .mobile-header, .manage .mobile-tabs { display: none; }
+
+@media (max-width: 767px) {
+  .manage.manage-layout { flex-direction: column; }
+  .manage .sidebar { display: none; }
+  .manage .manage-main { padding: 16px 16px 84px; }
+  .manage .table-wrap { max-height: calc(100vh - 230px); }
+
+  .manage .mobile-header {
+    display: flex; align-items: center; gap: 10px;
+    position: sticky; top: 0; z-index: 20;
+    padding: 10px 16px;
+    background: var(--m-header-bg);
+    border-bottom: 1px solid var(--m-header-border);
+    color: var(--m-header-text);
+  }
+  .manage .mobile-back {
+    font-size: 12.5px; font-weight: 600; text-decoration: none;
+    color: var(--m-header-text);
+    padding: 4px 10px; border-radius: 999px; border: 1px solid var(--m-header-border);
+  }
+  .manage .mobile-tabs {
+    display: flex; justify-content: space-around;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+    padding: 0 4px env(safe-area-inset-bottom);
+    background: var(--m-surface);
+    border-top: 1px solid var(--m-border);
+  }
+  .manage .mobile-tab {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 8px 4px;
+    font-size: 10.5px; font-weight: 500; text-decoration: none;
+    color: var(--m-muted);
+  }
+  .manage .mobile-tab.active { color: var(--m-primary-text); }
+  .manage input[type='search'] { min-width: 0; width: 100%; }
+}
+
+/* ── Loaders (same look as the Lead Tracker's: ring + spinning green arc) ── */
+.manage.manage-loading {
+  min-height: 100vh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  color: var(--m-muted); font-size: 14px;
+}
+.manage .loader-ring {
+  display: inline-grid; place-items: center;
+  height: 48px; width: 48px; border-radius: 999px;
+  border: 2px solid var(--m-border-strong);
+}
+.manage .loader-arc, .manage .spinner {
+  display: inline-block; border-radius: 999px;
+  border: 2px solid var(--m-primary); border-top-color: transparent;
+  animation: m-spin 0.8s linear infinite;
+}
+.manage .loader-arc { height: 28px; width: 28px; }
+.manage .loading-row { display: inline-flex; align-items: center; gap: 10px; }
+@keyframes m-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .manage .loader-arc, .manage .spinner { animation-duration: 2.4s; }
+}

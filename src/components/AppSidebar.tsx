@@ -1,4 +1,5 @@
 import { Users, XCircle, DollarSign, Clock } from 'lucide-react';
+import ManagerViewLink from './ManagerViewLink';
 import ProxySelector from './ProxySelector';
 
 interface NavItem {
@@ -67,9 +68,10 @@ export default function AppSidebar({
         })}
       </nav>
 
-      {/* Proxy selector (managers only) */}
+      {/* Manager View + proxy selector (managers only) */}
       {isManager && (
         <div className="px-3 py-2.5 border-t border-[hsl(var(--header-border))]">
+          <ManagerViewLink className="mb-3 flex w-full items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90" />
           <p className="text-[10px] uppercase tracking-wider mb-1.5 text-[hsl(var(--header-muted))]">
             View as
           </p>

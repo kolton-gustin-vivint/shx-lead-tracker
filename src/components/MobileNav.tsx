@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ManagerViewLink from './ManagerViewLink';
 import { Users, XCircle, DollarSign, Clock, MoreHorizontal } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@project/components/ui/sheet';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@project/components/ui/dropdown-menu';
@@ -98,6 +99,8 @@ export default function MobileNav({
           <SheetHeader>
             <SheetTitle className="text-base">More</SheetTitle>
           </SheetHeader>
+
+          <ManagerViewLink className="mt-4 flex w-full items-center justify-center gap-2 rounded-md bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground" />
 
           {/* Proxy selector */}
           <div className="space-y-2 mt-4">

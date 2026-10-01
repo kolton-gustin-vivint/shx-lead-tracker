@@ -23,7 +23,38 @@ import updateActivity from './updateActivity';
 import updateLead from './updateLead';
 import updateSelfGenActivity from './updateSelfGenActivity';
 
+// Manager View (/manage) endpoints
+import assignLead from './assignLead';
+import getAdminStats from './getAdminStats';
+import getLoginReport from './getLoginReport';
+import getUnassignedLeads from './getUnassignedLeads';
+import refreshAdminStats from './refreshAdminStats';
+import triggerDistributeLeads from './triggerDistributeLeads';
+import triggerLoadLeadsForPro from './triggerLoadLeadsForPro';
+import triggerMarkLeftoverLeads from './triggerMarkLeftoverLeads';
+import triggerProcessNewUploads from './triggerProcessNewUploads';
+
+/**
+ * Endpoints behind the Manager View. The route handler refuses every one of
+ * these unless the caller's SHX Team role is Manager, so adding an endpoint
+ * here makes it manager-only without the file having to remember to check.
+ */
+const managerEndpoints = {
+  assignLead,
+  getAdminStats,
+  getLoginReport,
+  getUnassignedLeads,
+  refreshAdminStats,
+  triggerDistributeLeads,
+  triggerLoadLeadsForPro,
+  triggerMarkLeftoverLeads,
+  triggerProcessNewUploads,
+} as const;
+
+export const MANAGER_ONLY_ENDPOINTS: ReadonlySet<string> = new Set(Object.keys(managerEndpoints));
+
 export const endpoints = {
+  ...managerEndpoints,
   createActivity,
   createSelfGenActivity,
   deleteActivity,

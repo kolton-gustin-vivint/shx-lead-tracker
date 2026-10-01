@@ -10,7 +10,8 @@ import { randomUUID } from 'node:crypto';
 import { ZodError } from 'zod';
 import { ApiError, HTTP_STATUS_FOR_CODE, type AnyEndpoint, type RequestUser } from '@server/lib/endpoint';
 import { AirtableError } from '@server/lib/airtable';
-import { endpoints } from '@server/api';
+import { endpoints, MANAGER_ONLY_ENDPOINTS } from '@server/api';
+import { requireManager } from '@server/lib/access';
 import { requireRosterUser } from '@server/lib/roster';
 import { getSession } from '@FO-Enablement-Vivint/magistrate/next';
 
@@ -39,6 +40,9 @@ export const POST = async (request: NextRequest, { params }: { params: Promise<{
     // Refuses anyone not on the roster, or marked Inactive, before any
     // endpoint runs. The returned user already carries their roster row.
     const user: RequestUser = await requireRosterUser(session);
+
+    // … and Manager View endpoints additionally require the Manager role.
+    if (MANAGER_ONLY_ENDPOINTS.has(name)) requireManager(user);
 
     let body: unknown = {};
     try {

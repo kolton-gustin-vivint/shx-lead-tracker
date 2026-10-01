@@ -104,6 +104,25 @@ read-only filesystem: attachment uploads write to `/tmp`, so they need
 Airtable's direct upload endpoint or blob storage. Long paginating endpoints
 can also exceed the function timeout. See `VERIFICATION.md`.
 
+## Manager View (`/manage`)
+
+Managers get a **Manager View** button (sidebar, and the "More" sheet on
+mobile) that opens the manager tools — Unassigned, Team, Admin and Login
+Report — at `/manage/*`. Pros never see the button.
+
+Access is enforced twice:
+
+- **Pages:** `app/manage/layout.tsx` checks the Magistrate session, the SHX Team
+  roster and Role = Manager on the server before rendering, and sends anyone
+  else back to `/`.
+- **API:** the endpoints those pages call are listed in `managerEndpoints` in
+  `server/api/index.ts`; `app/api/[name]/route.ts` refuses all of them unless
+  the caller is a Manager. Add new manager endpoints to that list.
+
+The Manager View has its own dark theme (`src/manage/manage.css`). Every rule
+in it is scoped under `.manage` and its variables are `--m-*`, so it can't
+restyle the Pro app — keep it that way when editing it.
+
 ## Login history
 
 Every sign-in appends a row to the `login_events` table in Neon: who, their
