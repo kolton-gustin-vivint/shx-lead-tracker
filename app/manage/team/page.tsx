@@ -6,6 +6,7 @@ import { Spinner } from '@/manage/ManageLoading';
 import { useCardMode } from '@/manage/useCardMode';
 import { formatCurrency } from '@/manage/format';
 import LoadLeadsDialog, { type LoadMode } from '@/manage/LoadLeadsDialog';
+import ReclaimLeadsDialog from '@/manage/ReclaimLeadsDialog';
 
 type Pro = {
   id: string;
@@ -21,8 +22,8 @@ type Pro = {
 };
 
 // The SHX Team record buttons from Airtable, ordered everyday → destructive.
-// Load Leads and Load NEW CAP run in the app (with a preview first); the rest
-// are layout placeholders for now.
+// Load Leads, Load NEW CAP and Reclaim Leads run in the app (with a preview
+// first); the rest are layout placeholders for now.
 const ACTIONS = [
   { key: 'loadLeads', label: 'Load Leads', variant: 'blue' },
   { key: 'loadNewCap', label: 'Load NEW CAP', variant: 'cyan' },
@@ -44,6 +45,7 @@ export default function TeamPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [loadFor, setLoadFor] = useState<{ mode: LoadMode; pro: Pro } | null>(null);
+  const [reclaimFor, setReclaimFor] = useState<Pro | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -70,6 +72,7 @@ export default function TeamPage() {
 
   const runAction = (key: ActionKey, pro: Pro) => {
     if (key === 'loadLeads' || key === 'loadNewCap') { setError(null); setNotice(null); return setLoadFor({ mode: key, pro }); }
+    if (key === 'reclaimLeads') { setError(null); setNotice(null); return setReclaimFor(pro); }
     const label = ACTIONS.find(a => a.key === key)?.label;
     setError(null);
     setNotice(`${label} isn't connected yet — layout only for now.`);
@@ -146,6 +149,14 @@ export default function TeamPage() {
         </table>
       </div>
       <p className="muted">{shown.length} of {pros.length} Pros</p>
+      {reclaimFor && (
+        <ReclaimLeadsDialog
+          key={reclaimFor.id}
+          pro={{ id: reclaimFor.id, name: reclaimFor.displayName || reclaimFor.proName || 'Rep' }}
+          onClose={() => setReclaimFor(null)}
+          onDone={message => { setReclaimFor(null); setNotice(message); load(); }}
+        />
+      )}
       {loadFor && (
         <LoadLeadsDialog
           key={`${loadFor.mode}-${loadFor.pro.id}`}

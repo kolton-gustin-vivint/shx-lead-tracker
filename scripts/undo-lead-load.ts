@@ -1,30 +1,35 @@
 /**
- * Undoes a lead load (Load NEW CAP / Load Leads run from the Manager View).
+ * Undoes a Manager View lead action — a load (Load Leads / Load NEW CAP) or a
+ * Reclaim Leads.
  *
  *   npm run leads:undo -- <auditLogRecordId>           # preview only
  *   npm run leads:undo -- <auditLogRecordId> --apply   # restore
  *
- * Reads the UNDO-DATA line the loader wrote into that Audit Log entry and puts
- * each lead's Assigned Pro, Date Assigned, Last Attempted, Assignment Status
- * and Lead Type back (and Status, for v2 undo data). A lead is only restored
- * if it is STILL assigned to that Pro and still unworked (Status blank or NEW
- * — an Airtable automation sets NEW on activation). Anything reassigned or
- * worked since is left alone and reported.
+ * Reads the UNDO-DATA line the action wrote into that Audit Log entry and puts
+ * each lead back exactly as it was. Leads changed by someone since are left
+ * alone and reported:
+ *   - load:    only if still assigned to that Pro and unworked (Status blank/NEW)
+ *   - reclaim: only if still unassigned and Ready to Assign (not re-loaded)
  *
- * Two writes, because of an Airtable automation: changing Assigned Pro (even
- * clearing it) makes it stamp Status = "NEW" and today's Date Assigned. So:
- *   1. restore everything except Status and Date Assigned (this fires it),
- *   2. wait for that automation to run (up to 90 s),
- *   3. restore Status and Date Assigned — no Assigned Pro change, so no re-stamp,
- *   4. re-read after 20 s and report anything that still differs.
+ * Two writes, because an Airtable automation stamps Status "NEW" and today's
+ * Date Assigned whenever Assigned Pro changes (see server/leadLoader/automation.ts).
  */
 import { AuditLog, NisLeads } from '../server/airtable/index';
+import { readStamps, waitForAssignedProAutomation } from '../server/leadLoader/automation';
 
 const [, , auditId, flag] = process.argv;
-const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 const apply = flag === '--apply';
 
-interface Before { id: string; assignedPro: string[] | null; dateAssigned: string | null; lastAttempted: string | null; assignmentStatus: string | null; leadType: string | null; status?: string | null }
+type Before = Record<string, any> & { id: string; dateAssigned: string | null; status?: string | null };
+interface UndoData { v: number; kind?: 'load' | 'reclaim'; proId: string; leads: Before[] }
+
+/** Fields written in step 1 (everything except Date Assigned / Status). */
+function stepOneFields(kind: 'load' | 'reclaim', b: Before): Record<string, unknown> {
+  if (kind === 'reclaim') {
+    return { assignedPro: b.assignedPro ?? [], originalAssignedPro: b.originalAssignedPro, closeReason: b.closeReason, assignmentStatus: b.assignmentStatus, leadType: b.leadType };
+  }
+  return { assignedPro: b.assignedPro ?? [], lastAttempted: b.lastAttempted, assignmentStatus: b.assignmentStatus, leadType: b.leadType };
+}
 
 async function main() {
   if (!auditId || !auditId.startsWith('rec')) throw new Error('Usage: npm run leads:undo -- <auditLogRecordId> [--apply]');
@@ -32,7 +37,9 @@ async function main() {
   if (!entry) throw new Error(`Audit Log ${auditId} not found`);
   const line = String((entry as any).details ?? '').split('\n').find(l => l.startsWith('UNDO-DATA '));
   if (!line) throw new Error('That Audit Log entry has no UNDO-DATA line');
-  const data = JSON.parse(line.slice('UNDO-DATA '.length)) as { v: number; proId: string; leads: Before[] };
+  const data = JSON.parse(line.slice('UNDO-DATA '.length)) as UndoData;
+  const kind = data.kind ?? 'load';
+  console.log(`Undo ${kind} from Audit Log ${auditId} (${(entry as any).actions}), Pro ${data.proId}, ${data.leads.length} lead(s)`);
 
   const current = new Map<string, any>();
   for (let i = 0; i < data.leads.length; i += 100) {
@@ -44,42 +51,32 @@ async function main() {
   for (const b of data.leads) {
     const c = current.get(b.id);
     const pros: string[] = c?.assignedPro ?? [];
-    if (!c) console.log(`  skip ${b.id}: lead no longer exists`);
-    else if (!(pros.length === 1 && pros[0] === data.proId)) console.log(`  skip ${b.id} (${c.customerName}): now assigned to ${pros.join(', ') || 'nobody'}, not ${data.proId}`);
-    else if (c.status && c.status !== 'NEW') console.log(`  skip ${b.id} (${c.customerName}): already being worked (Status "${c.status}")`);
-    else { restore.push(b); console.log(`  ${apply ? 'restore' : 'would restore'} ${b.id} (${c.customerName}) → Lead Type ${b.leadType}, Assigned Pro ${b.assignedPro?.length ? b.assignedPro.join(',') : '(none)'}`); }
+    const name = c?.customerName ?? '';
+    if (!c) { console.log(`  skip ${b.id}: lead no longer exists`); continue; }
+    if (kind === 'load') {
+      if (!(pros.length === 1 && pros[0] === data.proId)) { console.log(`  skip ${b.id} (${name}): now assigned to ${pros.join(', ') || 'nobody'}, not ${data.proId}`); continue; }
+      if (c.status && c.status !== 'NEW') { console.log(`  skip ${b.id} (${name}): already being worked (Status "${c.status}")`); continue; }
+    } else {
+      if (pros.length || c.leadType !== 'Ready to Assign') { console.log(`  skip ${b.id} (${name}): re-assigned since (${pros.join(', ') || c.leadType})`); continue; }
+    }
+    restore.push(b);
+    console.log(`  ${apply ? 'restore' : 'would restore'} ${b.id} (${name}) → Lead Type ${b.leadType}, Assigned Pro ${b.assignedPro?.length ? b.assignedPro.join(',') : '(none)'}, Date Assigned ${b.dateAssigned ?? '(none)'}`);
   }
 
   if (!apply) { console.log(`\nPreview: ${restore.length} of ${data.leads.length} lead(s) would be restored. Re-run with --apply to do it.`); return; }
+  if (restore.length === 0) { console.log('\nNothing to restore.'); return; }
 
-  // 1. Everything except Status and Date Assigned.
-  await NisLeads.updateMany(restore.map(b => ({
-    id: b.id,
-    record: { assignedPro: b.assignedPro ?? [], lastAttempted: b.lastAttempted, assignmentStatus: b.assignmentStatus, leadType: b.leadType },
-  })));
-  console.log('Step 1 done (assignment cleared). Waiting for the Assigned Pro automation…');
+  // 1. Everything except Date Assigned / Status — this fires the Assigned Pro automation.
+  await NisLeads.updateMany(restore.map(b => ({ id: b.id, record: stepOneFields(kind, b) })));
+  console.log('Step 1 done. Waiting for the Assigned Pro automation…');
 
-  // 2. Wait until the automation has stamped Status/Date Assigned (or 90 s).
-  const ids = restore.map(b => b.id);
-  const readStamps = async () => {
-    const out = new Map<string, { status?: string; dateAssigned?: string }>();
-    for (let i = 0; i < ids.length; i += 100) {
-      const page = await NisLeads.findAll({ filters: { id: { in: ids.slice(i, i + 100) } as any }, fields: ['status', 'dateAssigned'], limit: 100 });
-      for (const r of page.records as any[]) out.set(r.id, { status: r.status, dateAssigned: r.dateAssigned });
-    }
-    return out;
+  // 2. Wait for it to stamp, then 3. restore Date Assigned / Status on their own.
+  const byId = new Map(restore.map(b => [b.id, b]));
+  const stamped = (id: string, now?: { status?: string | null; dateAssigned?: string | null }) => {
+    const b = byId.get(id)!;
+    return !!now && ((now.dateAssigned ?? null) !== (b.dateAssigned ?? null) || ('status' in b && (now.status ?? null) !== (b.status ?? null)));
   };
-  const stamped = (b: Before, now?: { status?: string; dateAssigned?: string }) =>
-    !!now && ((now.dateAssigned ?? null) !== b.dateAssigned || ('status' in b && (now.status ?? null) !== (b.status ?? null)));
-  const t0 = Date.now();
-  while (Date.now() - t0 < 90_000) {
-    await sleep(5_000);
-    const now = await readStamps();
-    if (restore.every(b => stamped(b, now.get(b.id)))) break;
-  }
-  await sleep(5_000); // let any trailing automation runs finish
-
-  // 3. Status and Date Assigned, without touching Assigned Pro.
+  await waitForAssignedProAutomation(restore.map(b => b.id), stamped);
   await NisLeads.updateMany(restore.map(b => ({
     id: b.id,
     record: { dateAssigned: b.dateAssigned, ...('status' in b ? { status: b.status ?? null } : {}) },
@@ -87,12 +84,12 @@ async function main() {
   if (data.v < 2) console.log('Note: this entry predates Status in the undo data, so Status was left unchanged.');
 
   // 4. Verify.
-  await sleep(20_000);
-  const final = await readStamps();
-  const restamped = restore.filter(b => stamped(b, final.get(b.id)));
-  if (restamped.length) console.log(`WARNING: ${restamped.length} lead(s) had Status/Date Assigned changed again after restoring: ${restamped.map(b => b.id).join(', ')}`);
+  await new Promise(r => setTimeout(r, 20_000));
+  const final = await readStamps(restore.map(b => b.id));
+  const restamped = restore.filter(b => stamped(b.id, final.get(b.id)));
+  if (restamped.length) console.log(`WARNING: ${restamped.length} lead(s) changed again after restoring: ${restamped.map(b => b.id).join(', ')}`);
 
-  await AuditLog.create({ record: { actions: 'Undo lead load', details: `Undid ${restore.length} of ${data.leads.length} lead(s) from Audit Log ${auditId} (Pro ${data.proId})` } });
+  await AuditLog.create({ record: { actions: 'Undo lead action', details: `Undid ${kind}: restored ${restore.length} of ${data.leads.length} lead(s) from Audit Log ${auditId} (Pro ${data.proId})` } });
   console.log(`\nRestored ${restore.length} of ${data.leads.length} lead(s).`);
 }
 

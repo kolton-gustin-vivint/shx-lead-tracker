@@ -2,7 +2,8 @@ node_modules/
 .env
 .env.*
 !.env.example
-data/
+# old local SQLite dir (root only) — server/data/ holds committed reference data
+/data/
 uploads/
 *.log
 .DS_Store
