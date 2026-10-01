@@ -23,21 +23,28 @@ export default createEndpoint({
   execute: async ({ context }) => {
     requireManager(context.user);
 
+    // The two Neon queries don't depend on Airtable or on each other, so start
+    // them now and let them run while the roster loads.
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const countsPromise = loginEvents.countsSince(thirtyDaysAgo);
+    const lastLoginsPromise = loginEvents.lastLogins();
+
     // Get all non-inactive team members from Airtable
     let allRecords: any[] = [];
-    const first = await ShxTeam.findAll({ filters: { status: { not: 'Inactive' } }, limit: 100 });
+    // Only the fields used below — full SHX Team rows are megabytes per page.
+    const fields = ['proName', 'displayName', 'email', 'role', 'status', 'lastLogin'];
+    const first = await ShxTeam.findAll({ filters: { status: { not: 'Inactive' } }, fields, limit: 100 });
     allRecords = [...first.records];
     let nextOffset = first.offset;
     while (first.hasMore && nextOffset) {
-      const batch = await ShxTeam.findAll({ filters: { status: { not: 'Inactive' } }, offset: nextOffset, limit: 100 });
+      const batch = await ShxTeam.findAll({ filters: { status: { not: 'Inactive' } }, fields, offset: nextOffset, limit: 100 });
       allRecords = allRecords.concat(batch.records);
       nextOffset = batch.hasMore ? batch.offset : undefined;
     }
 
-    // Get login counts from the local store for last 30 days
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    // Login counts for the last 30 days
     const countMap = new Map<string, number>();
-    for (const row of await loginEvents.countsSince(thirtyDaysAgo)) {
+    for (const row of await countsPromise) {
       countMap.set(String(row.airtableRecordId), Number(row.cnt));
     }
 
@@ -46,7 +53,7 @@ export default createEndpoint({
     // fall back to Airtable's date for people who predate the log (or if the log
     // is unavailable), and keep Airtable's date if it is somehow newer.
     const exactMap = new Map<string, string>();
-    for (const row of await loginEvents.lastLogins()) {
+    for (const row of await lastLoginsPromise) {
       exactMap.set(String(row.airtableRecordId), row.last);
     }
 

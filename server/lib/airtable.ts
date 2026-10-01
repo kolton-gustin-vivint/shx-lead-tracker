@@ -117,6 +117,12 @@ export interface FindAllOptions {
    * matches from the whole table rather than matches within the first page.
    */
   searchAny?: { fields: string[]; term: string };
+  /**
+   * Only return these fields (camelCase keys). Airtable sends every field by
+   * default — on wide tables with long linked-record lists that can be
+   * megabytes per page — so pass this when you only need a few.
+   */
+  fields?: string[];
 }
 
 export interface FindAllResult<T> {
@@ -337,8 +343,10 @@ export function defineTable<T extends { id: string }>(def: TableDef): TableClien
     pageSize: number;
     offset?: string;
     sort?: FindAllOptions['sort'];
+    fields?: string[];
   }): Promise<RawList> {
     const body: Record<string, unknown> = { pageSize: params.pageSize };
+    if (params.fields?.length) body.fields = params.fields.map(key => requireField(key).name);
     if (params.filterByFormula) body.filterByFormula = params.filterByFormula;
     if (params.offset) body.offset = params.offset;
     if (params.sort?.length) {
@@ -356,7 +364,7 @@ export function defineTable<T extends { id: string }>(def: TableDef): TableClien
 
     // Plain query: Airtable's own cursor is the offset.
     if (idSet === null) {
-      const page = await listPage({ filterByFormula: joinAnd(formulaParts), pageSize, offset: options.offset, sort: options.sort });
+      const page = await listPage({ filterByFormula: joinAnd(formulaParts), pageSize, offset: options.offset, sort: options.sort, fields: options.fields });
       return { records: page.records.map(fromAirtable), offset: page.offset, hasMore: Boolean(page.offset) };
     }
 
@@ -382,6 +390,7 @@ export function defineTable<T extends { id: string }>(def: TableDef): TableClien
       pageSize,
       offset: innerOffset,
       sort: options.sort,
+      fields: options.fields,
     });
 
     let next: string | undefined;

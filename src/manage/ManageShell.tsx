@@ -12,8 +12,8 @@ import { ArrowLeft, LogIn, Shield, UserMinus, Users } from 'lucide-react';
 import ManageLoading from './ManageLoading';
 
 const NAV = [
-  { href: '/manage/unassigned', label: 'Unassigned', short: 'Unassigned', Icon: UserMinus },
   { href: '/manage/team', label: 'Team', short: 'Team', Icon: Users },
+  { href: '/manage/unassigned', label: 'Unassigned', short: 'Unassigned', Icon: UserMinus },
   { href: '/manage/admin', label: 'Admin', short: 'Admin', Icon: Shield },
   { href: '/manage/logins', label: 'Login Report', short: 'Logins', Icon: LogIn },
 ];

@@ -14,9 +14,18 @@ export default createEndpoint({
     // what each rep has earned is for managers only.
     const canSeeComp = isManager(context.user);
 
+    // Only the fields mapped below. A full SHX Team row includes long linked
+    // lists (assigned leads, activities, audit log…) — ~2.4 MB per 100 reps
+    // versus ~35 KB for these.
+    const fields = [
+      'proName', 'displayName', 'email', 'role', 'status', 'repId',
+      'assignedActiveLeads', 'todaysLeads', 'dailyNewLeadCap', 'activeLeadCap', 'runningCompTotal',
+    ];
+
     // First batch — also tells us if there are more pages
     const first = await ShxTeam.findAll({
       filters: { status: { not: 'Inactive' } },
+      fields,
       limit: 100,
     });
 
@@ -30,6 +39,7 @@ export default createEndpoint({
           offsets.map(o =>
             ShxTeam.findAll({
               filters: { status: { not: 'Inactive' } },
+              fields,
               offset: o,
               limit: 100,
             })
