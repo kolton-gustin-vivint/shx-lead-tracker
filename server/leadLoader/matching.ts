@@ -1,8 +1,8 @@
 /**
- * Lead-matching logic shared by the lead loaders (Load NEW CAP, and Load Leads
- * once ported). Ported from the Airtable script "Load New Cap (GRID BUTTON)
- * v1.9" (based on Single-Pro Loader v9.7) — keep the two in step while the
- * Airtable buttons still exist.
+ * Lead-matching logic shared by the lead loaders. Ported from the Airtable
+ * scripts "Single-Pro Loader (GRID BUTTON) v9.9" (Load Leads) and "Load New Cap
+ * (GRID BUTTON) v1.9" (Load NEW CAP), whose matching code is identical — keep
+ * them in step while the Airtable buttons still exist.
  *
  * Differences from the script are only about data shape: the REST API returns
  * single selects as plain strings (the scripting API returns { name }), and
@@ -14,6 +14,7 @@ import { zipCentroid, type LatLng } from './zipCentroids';
 
 // ── Constants (same values as the script) ───────────────────────────────────
 export const DEFAULT_TOTAL_CAP = 150; // Active Lead Cap when the Pro's field is blank
+export const DEFAULT_DAILY_CAP = 10; // Daily New Lead Cap when the Pro's field is blank (Load Leads)
 export const MAX_LEAD_AGE_DAYS = 75;
 export const DEFAULT_RADIUS_MILES = 60; // when the Pro's Radius field is blank
 export const STATE_FALLBACK_BACKSTOP_MILES = 100;

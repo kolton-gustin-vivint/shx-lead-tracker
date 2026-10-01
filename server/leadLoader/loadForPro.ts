@@ -1,6 +1,8 @@
 /**
  * Loads leads onto one Pro — the server-side version of the Airtable
- * "Load New Cap" button script (see matching.ts for the ported logic).
+ * "Single-Pro Loader" (Load Leads) and "Load New Cap" button scripts (see
+ * matching.ts for the ported logic). The only difference between the two is
+ * the daily cap: the Pro's Daily New Lead Cap, or a one-off value.
  *
  * `dryRun` computes everything (capacity, candidates, buckets, the exact leads
  * that would be assigned) without writing. A real run repeats the work with
@@ -12,14 +14,14 @@ import { NisLeads, ShxTeam, AuditLog } from '../airtable/index';
 import { airtableString as q } from '../lib/airtable';
 import { ApiError } from '../lib/endpoint';
 import {
-  BUCKET_LABELS, BUCKET_ORDER, DEFAULT_TOTAL_CAP, MAX_LEAD_AGE_DAYS, STATE_NAME_BY_ABBR,
+  BUCKET_LABELS, BUCKET_ORDER, DEFAULT_DAILY_CAP, DEFAULT_TOTAL_CAP, MAX_LEAD_AGE_DAYS, STATE_NAME_BY_ABBR,
   bucketize, filterCandidates, shortfallReasons, territoryOf, type BucketName, type LeadFields,
 } from './matching';
 
 export interface LoadOptions {
   proId: string;
-  /** Daily cap for this load (the script's "Override Cap" prompt). */
-  cap: number;
+  /** One-off daily cap (Load NEW CAP). Omit to use the Pro's Daily New Lead Cap (Load Leads). */
+  cap?: number;
   /** The manager's local date, YYYY-MM-DD — written as Date Assigned and used for "today's" count. */
   localDate: string;
   dryRun: boolean;
@@ -35,7 +37,7 @@ export interface LoadResult {
   status: 'preview' | 'assigned' | 'nothing-to-do' | 'skipped';
   message: string;
   pro: { id: string; name: string };
-  capacity?: { cap: number; today: number; active: number; activeCap: number; needed: number };
+  capacity?: { cap: number; capSource: 'override' | 'Daily New Lead Cap' | 'default'; today: number; active: number; activeCap: number; needed: number };
   territory?: { states: string[]; districts: string[]; homeStateSource: string };
   filtering?: { considered: number; passed: number; worked: number; tooOld: number };
   buckets?: Array<{ name: string; count: number }>;
@@ -124,12 +126,14 @@ export async function loadLeadsForPro(o: LoadOptions): Promise<LoadResult> {
   }
 
   const activeCap: number = p.activeLeadCap ?? DEFAULT_TOTAL_CAP;
+  const dailyCap: number = o.cap ?? p.dailyNewLeadCap ?? DEFAULT_DAILY_CAP;
+  const capSource = o.cap != null ? 'override' : p.dailyNewLeadCap != null ? 'Daily New Lead Cap' : 'default';
   let counts = await currentCounts(String(p.repId), o.localDate);
-  const capacityOf = (c: typeof counts) => ({ cap: o.cap, today: c.today, active: c.active, activeCap, needed: Math.min(o.cap - c.today, activeCap - c.active) });
+  const capacityOf = (c: typeof counts) => ({ cap: dailyCap, capSource, today: c.today, active: c.active, activeCap, needed: Math.min(dailyCap - c.today, activeCap - c.active) }) as const;
   let capacity = capacityOf(counts);
   if (capacity.needed <= 0) {
-    const reason = o.cap - counts.today <= 0
-      ? `already at or above the cap for today (${counts.today}/${o.cap})`
+    const reason = dailyCap - counts.today <= 0
+      ? `daily cap reached (${counts.today}/${dailyCap})`
       : `active lead cap reached (${counts.active}/${activeCap})`;
     return { status: 'nothing-to-do', pro: proInfo, territory, capacity, message: `Capacity reached — ${reason}.` };
   }

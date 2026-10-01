@@ -1,14 +1,16 @@
 'use client';
 
 /**
- * Team → "Load NEW CAP". Pick a daily cap for this load, preview exactly which
- * leads it would assign (nothing is written), then confirm.
+ * Team → "Load Leads" and "Load NEW CAP". Previews exactly which leads would be
+ * assigned (nothing is written), then confirms. Load Leads uses the rep's own
+ * Daily New Lead Cap; Load NEW CAP lets the manager pick a one-off cap.
  */
 import { useEffect, useRef, useState } from 'react';
 import { api, errorMessage, type OutputOf } from './api';
 import { Spinner } from './ManageLoading';
 
 type Result = OutputOf<'loadNewCap'>;
+export type LoadMode = 'loadLeads' | 'loadNewCap';
 
 /** Today in the manager's own time zone — written as Date Assigned. */
 function localToday(): string {
@@ -16,9 +18,10 @@ function localToday(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export default function LoadNewCapDialog({
-  pro, defaultCap, onClose, onAssigned,
+export default function LoadLeadsDialog({
+  mode, pro, defaultCap, onClose, onAssigned,
 }: {
+  mode: LoadMode;
   pro: { id: string; name: string };
   defaultCap: number;
   onClose: () => void;
@@ -33,8 +36,12 @@ export default function LoadNewCapDialog({
 
   useEffect(() => { ref.current?.showModal(); }, []);
 
+  const newCap = mode === 'loadNewCap';
   const capNumber = Number(cap);
-  const capValid = Number.isInteger(capNumber) && capNumber >= 1 && capNumber <= 500;
+  const capValid = !newCap || (Number.isInteger(capNumber) && capNumber >= 1 && capNumber <= 500);
+  const call = (dryRun: boolean) => newCap
+    ? api('loadNewCap', { proId: pro.id, cap: capNumber, localDate: localToday(), dryRun })
+    : api('loadLeads', { proId: pro.id, localDate: localToday(), dryRun });
 
   const runPreview = async () => {
     if (!capValid) return;
@@ -42,7 +49,7 @@ export default function LoadNewCapDialog({
     setError(null);
     setPreview(null);
     try {
-      setPreview(await api('loadNewCap', { proId: pro.id, cap: capNumber, localDate: localToday(), dryRun: true }));
+      setPreview(await call(true));
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -57,7 +64,7 @@ export default function LoadNewCapDialog({
     setAssigning(true);
     setError(null);
     try {
-      const res = await api('loadNewCap', { proId: pro.id, cap: capNumber, localDate: localToday(), dryRun: false });
+      const res = await call(false);
       const skipped = res.skippedAlreadyTaken ? ` (${res.skippedAlreadyTaken} were taken meanwhile and skipped)` : '';
       onAssigned(res.status === 'assigned' ? `${res.message}${skipped}` : res.message);
     } catch (err) {
@@ -74,18 +81,28 @@ export default function LoadNewCapDialog({
     <dialog ref={ref} className="m-dialog" onCancel={e => { e.preventDefault(); close(); }}>
       <div className="m-dialog-head">
         <div>
-          <h2>Load NEW CAP</h2>
+          <h2>{newCap ? 'Load NEW CAP' : 'Load Leads'}</h2>
           <p className="muted">{pro.name}</p>
         </div>
         <button className="m-dialog-x" onClick={close} disabled={assigning} aria-label="Close">×</button>
       </div>
 
-      <form className="row m-dialog-cap" onSubmit={e => { e.preventDefault(); runPreview(); }}>
-        <label htmlFor="cap">Daily cap for this load</label>
-        <input id="cap" type="number" min={1} max={500} value={cap} onChange={e => { setCap(e.target.value); setPreview(null); }} disabled={assigning} />
-        <button type="submit" disabled={!capValid || busy}>Preview</button>
-      </form>
-      <p className="muted m-dialog-hint">Assigns up to this many minus what they've already received today, and never past their active lead cap.</p>
+      {newCap ? (
+        <>
+          <form className="row m-dialog-cap" onSubmit={e => { e.preventDefault(); runPreview(); }}>
+            <label htmlFor="cap">Daily cap for this load</label>
+            <input id="cap" type="number" min={1} max={500} value={cap} onChange={e => { setCap(e.target.value); setPreview(null); }} disabled={assigning} />
+            <button type="submit" disabled={!capValid || busy}>Preview</button>
+          </form>
+          <p className="muted m-dialog-hint">Assigns up to this many minus what they've already received today, and never past their active lead cap.</p>
+        </>
+      ) : (
+        <p className="muted m-dialog-hint">
+          Tops them up to their daily cap
+          {preview?.capacity ? <> of <b>{preview.capacity.cap}</b> ({preview.capacity.capSource === 'default' ? 'default — Daily New Lead Cap is blank' : 'their Daily New Lead Cap'})</> : null}
+          , never past their active lead cap.
+        </p>
+      )}
 
       {error && <p className="error">{error}</p>}
       {previewing && <p className="muted loading-row"><Spinner /> Checking capacity and matching leads…</p>}

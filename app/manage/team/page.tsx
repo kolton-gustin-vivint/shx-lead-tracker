@@ -5,7 +5,7 @@ import { api, errorMessage } from '@/manage/api';
 import { Spinner } from '@/manage/ManageLoading';
 import { useCardMode } from '@/manage/useCardMode';
 import { formatCurrency } from '@/manage/format';
-import LoadNewCapDialog from '@/manage/LoadNewCapDialog';
+import LoadLeadsDialog, { type LoadMode } from '@/manage/LoadLeadsDialog';
 
 type Pro = {
   id: string;
@@ -21,8 +21,8 @@ type Pro = {
 };
 
 // The SHX Team record buttons from Airtable, ordered everyday → destructive.
-// Load NEW CAP runs in the app; Load Leads still calls the old trigger; the
-// rest are layout placeholders for now.
+// Load Leads and Load NEW CAP run in the app (with a preview first); the rest
+// are layout placeholders for now.
 const ACTIONS = [
   { key: 'loadLeads', label: 'Load Leads', variant: 'blue' },
   { key: 'loadNewCap', label: 'Load NEW CAP', variant: 'cyan' },
@@ -43,8 +43,7 @@ export default function TeamPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [loadNewCapFor, setLoadNewCapFor] = useState<Pro | null>(null);
+  const [loadFor, setLoadFor] = useState<{ mode: LoadMode; pro: Pro } | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -70,28 +69,10 @@ export default function TeamPage() {
   }, [pros, search]);
 
   const runAction = (key: ActionKey, pro: Pro) => {
-    if (key === 'loadLeads') return loadLeads(pro);
-    if (key === 'loadNewCap') { setError(null); setNotice(null); return setLoadNewCapFor(pro); }
+    if (key === 'loadLeads' || key === 'loadNewCap') { setError(null); setNotice(null); return setLoadFor({ mode: key, pro }); }
     const label = ACTIONS.find(a => a.key === key)?.label;
     setError(null);
     setNotice(`${label} isn't connected yet — layout only for now.`);
-  };
-
-  const loadLeads = async (pro: Pro) => {
-    const name = pro.displayName || pro.proName || 'this rep';
-    if (!window.confirm(`Trigger Load Leads for ${name}? This runs the Airtable automation that assigns them new leads.`)) return;
-    setBusyId(pro.id);
-    setNotice(null);
-    setError(null);
-    try {
-      await api('triggerLoadLeadsForPro', { proId: pro.id });
-      setNotice(`Load Leads triggered for ${name}.`);
-      setTimeout(load, 1500);
-    } catch (err) {
-      setError(`Load Leads failed for ${name}: ${errorMessage(err)}`);
-    } finally {
-      setBusyId(null);
-    }
   };
 
   return (
@@ -152,9 +133,8 @@ export default function TeamPage() {
                           key={action.key}
                           className={`btn-sm btn-${action.variant}`}
                           onClick={() => runAction(action.key, p)}
-                          disabled={action.key === 'loadLeads' && busyId === p.id}
                         >
-                          {action.key === 'loadLeads' && busyId === p.id ? 'Loading…' : action.label}
+                          {action.label}
                         </button>
                       ))}
                     </div>
@@ -166,12 +146,14 @@ export default function TeamPage() {
         </table>
       </div>
       <p className="muted">{shown.length} of {pros.length} Pros</p>
-      {loadNewCapFor && (
-        <LoadNewCapDialog
-          pro={{ id: loadNewCapFor.id, name: loadNewCapFor.displayName || loadNewCapFor.proName || 'Rep' }}
-          defaultCap={loadNewCapFor.dailyCap ?? 10}
-          onClose={() => setLoadNewCapFor(null)}
-          onAssigned={message => { setLoadNewCapFor(null); setNotice(message); load(); }}
+      {loadFor && (
+        <LoadLeadsDialog
+          key={`${loadFor.mode}-${loadFor.pro.id}`}
+          mode={loadFor.mode}
+          pro={{ id: loadFor.pro.id, name: loadFor.pro.displayName || loadFor.pro.proName || 'Rep' }}
+          defaultCap={loadFor.pro.dailyCap ?? 10}
+          onClose={() => setLoadFor(null)}
+          onAssigned={message => { setLoadFor(null); setNotice(message); load(); }}
         />
       )}
     </>
