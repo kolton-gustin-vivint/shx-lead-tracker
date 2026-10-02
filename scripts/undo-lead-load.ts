@@ -1,6 +1,7 @@
 /**
- * Undoes a Manager View lead action — a load (Load Leads / Load NEW CAP) or a
- * Reclaim Leads.
+ * Undoes a Manager View action — a load (Load Leads / Load NEW CAP), a reclaim
+ * (Reclaim Leads / FORCE Reclaim), a Pro status change (Revert Pro), or an
+ * Offboard Pro (both: the Pro is restored first, then their leads).
  *
  *   npm run leads:undo -- <auditLogRecordId>           # preview only
  *   npm run leads:undo -- <auditLogRecordId> --apply   # restore
@@ -14,19 +15,42 @@
  * Two writes, because an Airtable automation stamps Status "NEW" and today's
  * Date Assigned whenever Assigned Pro changes (see server/leadLoader/automation.ts).
  */
-import { AuditLog, NisLeads } from '../server/airtable/index';
+import { AuditLog, NisLeads, ShxTeam } from '../server/airtable/index';
 import { readStamps, waitForAssignedProAutomation } from '../server/leadLoader/automation';
 
 const [, , auditId, flag] = process.argv;
 const apply = flag === '--apply';
 
 type Before = Record<string, any> & { id: string; dateAssigned: string | null; status?: string | null };
-interface UndoData { v: number; kind?: 'load' | 'reclaim'; proId: string; leads: Before[] }
+interface UndoData {
+  v: number; kind?: 'load' | 'reclaim' | 'pro' | 'offboard'; proId: string; leads: Before[];
+  /** kind 'pro' / 'offboard': the SHX Team fields before and after. */
+  before?: Record<string, unknown>; after?: Record<string, unknown>;
+}
+
+/** Revert Pro and friends: one SHX Team record, restored only if nobody changed it since. */
+async function undoProChange(data: UndoData): Promise<boolean> {
+  const current = (await ShxTeam.findOne({ id: data.proId })) as Record<string, any> | null;
+  if (!current) throw new Error(`Pro ${data.proId} not found`);
+  const keys = Object.keys(data.after ?? {});
+  const changedSince = keys.filter(k => (current[k] ?? null) !== (data.after![k] ?? null));
+  console.log(`  now:    ${keys.map(k => `${k}=${current[k] ?? '(blank)'}`).join(', ')}`);
+  console.log(`  before: ${keys.map(k => `${k}=${data.before?.[k] ?? '(blank)'}`).join(', ')}`);
+  if (changedSince.length) { console.log(`\nSkip: ${changedSince.join(', ')} changed since this action — not restoring the Pro.`); return false; }
+  if (!apply) { console.log('\nPreview: would restore the Pro values above.'); return true; }
+  await ShxTeam.update({ id: data.proId, record: Object.fromEntries(keys.map(k => [k, data.before?.[k] ?? null])) });
+  await AuditLog.create({ record: { actions: 'Undo Pro change', details: `Restored ${keys.join(', ')} on Pro ${data.proId} from Audit Log ${auditId}` } });
+  console.log('\nPro restored.');
+  return true;
+}
 
 /** Fields written in step 1 (everything except Date Assigned / Status). */
 function stepOneFields(kind: 'load' | 'reclaim', b: Before): Record<string, unknown> {
   if (kind === 'reclaim') {
-    return { assignedPro: b.assignedPro ?? [], originalAssignedPro: b.originalAssignedPro, closeReason: b.closeReason, assignmentStatus: b.assignmentStatus, leadType: b.leadType };
+    return {
+      assignedPro: b.assignedPro ?? [], originalAssignedPro: b.originalAssignedPro, closeReason: b.closeReason, assignmentStatus: b.assignmentStatus, leadType: b.leadType,
+      ...('assignmentNeeded' in b ? { assignmentNeeded: !!b.assignmentNeeded } : {}),
+    };
   }
   return { assignedPro: b.assignedPro ?? [], lastAttempted: b.lastAttempted, assignmentStatus: b.assignmentStatus, leadType: b.leadType };
 }
@@ -39,7 +63,25 @@ async function main() {
   if (!line) throw new Error('That Audit Log entry has no UNDO-DATA line');
   const data = JSON.parse(line.slice('UNDO-DATA '.length)) as UndoData;
   const kind = data.kind ?? 'load';
+  if (kind === 'pro') {
+    console.log(`Undo ${(entry as any).actions} from Audit Log ${auditId}, Pro ${data.proId}`);
+    await undoProChange(data);
+    if (!apply) console.log('Re-run with --apply to do it.');
+    return;
+  }
+  if (kind === 'offboard') {
+    console.log(`Undo Offboard Pro from Audit Log ${auditId}, Pro ${data.proId}, ${data.leads.length} lead(s)`);
+    if (data.after) { console.log('\n— Pro —'); await undoProChange(data); }
+    else console.log('\n— Pro — not deactivated by that run; nothing to restore.');
+    console.log('\n— Leads —');
+    return undoLeads('reclaim', data);
+  }
   console.log(`Undo ${kind} from Audit Log ${auditId} (${(entry as any).actions}), Pro ${data.proId}, ${data.leads.length} lead(s)`);
+  return undoLeads(kind, data);
+}
+
+async function undoLeads(kind: 'load' | 'reclaim', data: UndoData) {
+  if (data.leads.length === 0) { console.log('  no leads to restore'); return; }
 
   const current = new Map<string, any>();
   for (let i = 0; i < data.leads.length; i += 100) {

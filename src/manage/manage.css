@@ -542,3 +542,14 @@
 .manage .m-dialog-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 .manage button.btn-quiet { background: transparent; color: var(--m-text); border: 1px solid var(--m-border-strong); }
 .manage button.btn-quiet:hover:not(:disabled) { background: var(--m-surface-2); }
+
+.manage button.btn-danger { background: hsl(0 70% 50%); color: #fff; }
+.manage button.btn-danger:hover:not(:disabled) { background: hsl(0 72% 56%); }
+
+.manage .tag-reverted {
+  margin-left: 8px; padding: 1px 7px; border-radius: 999px; vertical-align: 1px;
+  font-size: 10.5px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase;
+  color: hsl(220 12% 78%); background: hsl(220 9% 38% / 0.25); border: 1px solid hsl(220 9% 45% / 0.5);
+}
+
+.manage .m-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }

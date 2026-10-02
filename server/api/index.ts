@@ -25,13 +25,16 @@ import updateSelfGenActivity from './updateSelfGenActivity';
 
 // Manager View (/manage) endpoints
 import assignLead from './assignLead';
+import forceReclaimLeads from './forceReclaimLeads';
 import getAdminStats from './getAdminStats';
 import getLoginReport from './getLoginReport';
 import getUnassignedLeads from './getUnassignedLeads';
 import loadLeads from './loadLeads';
 import loadNewCap from './loadNewCap';
+import offboardPro from './offboardPro';
 import reclaimLeads from './reclaimLeads';
 import refreshAdminStats from './refreshAdminStats';
+import revertPro from './revertPro';
 import triggerDistributeLeads from './triggerDistributeLeads';
 import triggerMarkLeftoverLeads from './triggerMarkLeftoverLeads';
 import triggerProcessNewUploads from './triggerProcessNewUploads';
@@ -43,13 +46,16 @@ import triggerProcessNewUploads from './triggerProcessNewUploads';
  */
 const managerEndpoints = {
   assignLead,
+  forceReclaimLeads,
   getAdminStats,
   getLoginReport,
   getUnassignedLeads,
   loadLeads,
   loadNewCap,
+  offboardPro,
   reclaimLeads,
   refreshAdminStats,
+  revertPro,
   triggerDistributeLeads,
   triggerMarkLeftoverLeads,
   triggerProcessNewUploads,

@@ -1,8 +1,9 @@
 'use client';
 
 /**
- * Team → "Reclaim Leads". Lists the rep's leads that are still NEW more than
- * 14 days after assignment (nothing is written), then confirms.
+ * Team → "Reclaim Leads" (still NEW 14+ days after assignment) and
+ * "FORCE Reclaim" (every NEW lead, any age). Lists what would be taken back
+ * (nothing is written), then confirms.
  */
 import { useEffect, useRef, useState } from 'react';
 import { api, errorMessage, type OutputOf } from './api';
@@ -10,10 +11,12 @@ import { Spinner } from './ManageLoading';
 import { formatDate, describeAge, parseDateValue } from './format';
 
 type Result = OutputOf<'reclaimLeads'>;
+export type ReclaimMode = 'stale' | 'force';
 
 export default function ReclaimLeadsDialog({
-  pro, onClose, onDone,
+  mode, pro, onClose, onDone,
 }: {
+  mode: ReclaimMode;
   pro: { id: string; name: string };
   onClose: () => void;
   onDone: (message: string) => void;
@@ -24,19 +27,22 @@ export default function ReclaimLeadsDialog({
   const [reclaiming, setReclaiming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const force = mode === 'force';
+  const call = (dryRun: boolean) => api(force ? 'forceReclaimLeads' : 'reclaimLeads', { proId: pro.id, dryRun });
+
   useEffect(() => {
     ref.current?.showModal();
-    api('reclaimLeads', { proId: pro.id, dryRun: true })
+    call(true)
       .then(setPreview)
       .catch(err => setError(errorMessage(err)))
       .finally(() => setPreviewing(false));
-  }, [pro.id]);
+  }, [pro.id, mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const reclaim = async () => {
     setReclaiming(true);
     setError(null);
     try {
-      const res = await api('reclaimLeads', { proId: pro.id, dryRun: false });
+      const res = await call(false);
       onDone(res.message);
     } catch (err) {
       setError(errorMessage(err));
@@ -51,15 +57,21 @@ export default function ReclaimLeadsDialog({
     <dialog ref={ref} className="m-dialog" onCancel={e => { e.preventDefault(); close(); }}>
       <div className="m-dialog-head">
         <div>
-          <h2>Reclaim Leads</h2>
+          <h2>{force ? 'FORCE Reclaim' : 'Reclaim Leads'}</h2>
           <p className="muted">{pro.name}</p>
         </div>
         <button className="m-dialog-x" onClick={close} disabled={reclaiming} aria-label="Close">×</button>
       </div>
 
-      <p className="muted m-dialog-hint">
-        Takes back leads this rep hasn't touched — still <b>NEW</b> more than 14 days after they were assigned — and puts them back in the pool as Ready to Assign.
-      </p>
+      {force ? (
+        <p className="error m-dialog-hint">
+          Takes back <b>every</b> lead this rep still has at <b>NEW</b> — no matter how recently it was assigned — and puts them back in the pool as Ready to Assign. Use for offboarding or immediate lead recovery.
+        </p>
+      ) : (
+        <p className="muted m-dialog-hint">
+          Takes back leads this rep hasn't touched — still <b>NEW</b> more than 14 days after they were assigned — and puts them back in the pool as Ready to Assign.
+        </p>
+      )}
 
       {error && <p className="error">{error}</p>}
       {previewing && <p className="muted loading-row"><Spinner /> Looking for stale leads…</p>}
@@ -88,8 +100,8 @@ export default function ReclaimLeadsDialog({
 
       <div className="m-dialog-foot">
         <button className="btn-quiet" onClick={close} disabled={reclaiming}>Cancel</button>
-        <button onClick={reclaim} disabled={!count || previewing || reclaiming}>
-          {reclaiming ? 'Reclaiming…' : count ? `Reclaim ${count} lead${count === 1 ? '' : 's'}` : 'Reclaim'}
+        <button className={force ? 'btn-danger' : undefined} onClick={reclaim} disabled={!count || previewing || reclaiming}>
+          {reclaiming ? 'Reclaiming…' : count ? `${force ? 'Force reclaim' : 'Reclaim'} ${count} lead${count === 1 ? '' : 's'}` : 'Reclaim'}
         </button>
       </div>
     </dialog>

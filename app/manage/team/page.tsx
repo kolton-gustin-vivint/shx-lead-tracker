@@ -6,7 +6,9 @@ import { Spinner } from '@/manage/ManageLoading';
 import { useCardMode } from '@/manage/useCardMode';
 import { formatCurrency } from '@/manage/format';
 import LoadLeadsDialog, { type LoadMode } from '@/manage/LoadLeadsDialog';
-import ReclaimLeadsDialog from '@/manage/ReclaimLeadsDialog';
+import ReclaimLeadsDialog, { type ReclaimMode } from '@/manage/ReclaimLeadsDialog';
+import RevertProDialog from '@/manage/RevertProDialog';
+import OffboardProDialog from '@/manage/OffboardProDialog';
 
 type Pro = {
   id: string;
@@ -14,6 +16,7 @@ type Pro = {
   displayName?: string;
   email?: string;
   role?: string;
+  status?: string;
   activeLeadCount?: number;
   todaysLeads?: number;
   dailyCap?: number;
@@ -22,8 +25,8 @@ type Pro = {
 };
 
 // The SHX Team record buttons from Airtable, ordered everyday → destructive.
-// Load Leads, Load NEW CAP and Reclaim Leads run in the app (with a preview
-// first); the rest are layout placeholders for now.
+// All six run in the app, each with a preview first and an Audit Log entry
+// that `npm run leads:undo` can reverse.
 const ACTIONS = [
   { key: 'loadLeads', label: 'Load Leads', variant: 'blue' },
   { key: 'loadNewCap', label: 'Load NEW CAP', variant: 'cyan' },
@@ -45,7 +48,9 @@ export default function TeamPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [loadFor, setLoadFor] = useState<{ mode: LoadMode; pro: Pro } | null>(null);
-  const [reclaimFor, setReclaimFor] = useState<Pro | null>(null);
+  const [reclaimFor, setReclaimFor] = useState<{ mode: ReclaimMode; pro: Pro } | null>(null);
+  const [revertFor, setRevertFor] = useState<Pro | null>(null);
+  const [offboardFor, setOffboardFor] = useState<Pro | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -71,11 +76,16 @@ export default function TeamPage() {
   }, [pros, search]);
 
   const runAction = (key: ActionKey, pro: Pro) => {
-    if (key === 'loadLeads' || key === 'loadNewCap') { setError(null); setNotice(null); return setLoadFor({ mode: key, pro }); }
-    if (key === 'reclaimLeads') { setError(null); setNotice(null); return setReclaimFor(pro); }
-    const label = ACTIONS.find(a => a.key === key)?.label;
     setError(null);
-    setNotice(`${label} isn't connected yet — layout only for now.`);
+    setNotice(null);
+    switch (key) {
+      case 'loadLeads':
+      case 'loadNewCap': return setLoadFor({ mode: key, pro });
+      case 'reclaimLeads': return setReclaimFor({ mode: 'stale', pro });
+      case 'forceReclaim': return setReclaimFor({ mode: 'force', pro });
+      case 'revertPro': return setRevertFor(pro);
+      case 'offboardPro': return setOffboardFor(pro);
+    }
   };
 
   return (
@@ -115,7 +125,10 @@ export default function TeamPage() {
               shown.map(p => (
                 <tr key={p.id}>
                   <td className="card-title">
-                    <div>{p.displayName || p.proName}</div>
+                    <div>
+                      {p.displayName || p.proName}
+                      {p.status === 'Reverted' && <span className="tag-reverted" title="Status: Reverted — no longer receives loaded leads">Reverted</span>}
+                    </div>
                     <div className="muted">{p.email}</div>
                   </td>
                   <td
@@ -149,10 +162,27 @@ export default function TeamPage() {
         </table>
       </div>
       <p className="muted">{shown.length} of {pros.length} Pros</p>
+      {offboardFor && (
+        <OffboardProDialog
+          key={offboardFor.id}
+          pro={{ id: offboardFor.id, name: offboardFor.displayName || offboardFor.proName || 'Rep' }}
+          onClose={() => setOffboardFor(null)}
+          onDone={message => { setOffboardFor(null); setNotice(message); load(); }}
+        />
+      )}
+      {revertFor && (
+        <RevertProDialog
+          key={revertFor.id}
+          pro={{ id: revertFor.id, name: revertFor.displayName || revertFor.proName || 'Rep' }}
+          onClose={() => setRevertFor(null)}
+          onDone={message => { setRevertFor(null); setNotice(message); load(); }}
+        />
+      )}
       {reclaimFor && (
         <ReclaimLeadsDialog
-          key={reclaimFor.id}
-          pro={{ id: reclaimFor.id, name: reclaimFor.displayName || reclaimFor.proName || 'Rep' }}
+          key={`${reclaimFor.mode}-${reclaimFor.pro.id}`}
+          mode={reclaimFor.mode}
+          pro={{ id: reclaimFor.pro.id, name: reclaimFor.pro.displayName || reclaimFor.pro.proName || 'Rep' }}
           onClose={() => setReclaimFor(null)}
           onDone={message => { setReclaimFor(null); setNotice(message); load(); }}
         />
