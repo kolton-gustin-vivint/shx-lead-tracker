@@ -29,7 +29,7 @@ export default function AppSidebar({
     { id: 'leads', label: 'Leads', icon: <Users className="h-4 w-4" /> },
     { id: 'closed', label: 'Closed', icon: <XCircle className="h-4 w-4" /> },
     { id: 'compensation', label: 'Compensation', icon: <DollarSign className="h-4 w-4" /> },
-    { id: 'selfgen', label: 'Self-Gen', icon: <Clock className="h-4 w-4" /> },
+    { id: 'selfgen', label: 'Self-Gen Activity', icon: <Clock className="h-4 w-4" /> },
   ];
 
   return (

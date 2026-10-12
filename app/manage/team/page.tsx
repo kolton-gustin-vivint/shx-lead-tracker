@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { api, errorMessage } from '@/manage/api';
 import { Spinner } from '@/manage/ManageLoading';
 import { useCardMode } from '@/manage/useCardMode';
-import { formatCurrency } from '@/manage/format';
 import LoadLeadsDialog, { type LoadMode } from '@/manage/LoadLeadsDialog';
 import ReclaimLeadsDialog, { type ReclaimMode } from '@/manage/ReclaimLeadsDialog';
 import RevertProDialog from '@/manage/RevertProDialog';
@@ -21,7 +20,6 @@ type Pro = {
   todaysLeads?: number;
   dailyCap?: number;
   activeCap?: number;
-  runningCompTotal?: number;
 };
 
 // The SHX Team record buttons from Airtable, ordered everyday → destructive.
@@ -112,15 +110,14 @@ export default function TeamPage() {
               <th className="num">Today</th>
               <th className="num">Active cap</th>
               <th className="num">Daily cap</th>
-              <th className="num">Comp</th>
               <th className="actions-col">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="muted"><span className="loading-row"><Spinner /> Loading…</span></td></tr>
+              <tr><td colSpan={6} className="muted"><span className="loading-row"><Spinner /> Loading…</span></td></tr>
             ) : shown.length === 0 ? (
-              <tr><td colSpan={7} className="muted">No team members found.</td></tr>
+              <tr><td colSpan={6} className="muted">No team members found.</td></tr>
             ) : (
               shown.map(p => (
                 <tr key={p.id}>
@@ -141,7 +138,6 @@ export default function TeamPage() {
                   <td data-label="Today" className={`num${!p.todaysLeads ? ' zero' : ''}`}>{p.todaysLeads ?? 0}</td>
                   <td data-label="Active cap" className="num">{p.activeCap ?? '—'}</td>
                   <td data-label="Daily cap" className="num">{p.dailyCap ?? '—'}</td>
-                  <td data-label="Comp" className={`num${!p.runningCompTotal ? ' zero' : ''}`}>{formatCurrency(p.runningCompTotal)}</td>
                   <td className="actions-col card-wide">
                     <div className="actions">
                       {ACTIONS.map(action => (
