@@ -4,9 +4,9 @@ import { Button } from '@project/components/ui/button';
 import { Card, CardContent } from '@project/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@project/components/ui/tabs';
 import { Badge } from '@project/components/ui/badge';
-import { Plus, MessageSquare, Edit, Phone, Mail, Calendar, User, MapPin, Building, Hash, Clock, RefreshCw, Sparkles, FileText } from 'lucide-react';
+import { Plus, MessageSquare, Edit, Phone, Mail, Calendar, User, MapPin, Building, Hash, Clock, RefreshCw, FileText } from 'lucide-react';
 import { toast } from 'sonner';
-import { GetLeadsOutputType, GetRepsOutputType, suggestNextAction, generateAiSummary } from '@/lib/api';
+import { GetLeadsOutputType, GetRepsOutputType, generateAiSummary } from '@/lib/api';
 import { logAuditEvent } from '../utils/auditLogger';
 import { getStatusColorWithHover } from '../utils/statusColors';
 import { formatPhone, phoneHref } from '../utils/formatters';
@@ -51,14 +51,11 @@ export default function LeadDetails({
   const [showEditForm, setShowEditForm] = useState(false);
   const [showQuickStatusChange, setShowQuickStatusChange] = useState(false);
   const [editingActivity, setEditingActivity] = useState<any>(null);
-  const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
-  const [loadingSuggestion, setLoadingSuggestion] = useState(false);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
 
   useEffect(() => {
     setCurrentLead(lead);
-    setAiSuggestion(null);
     setAiSummary(null);
     setActivityRefreshKey(0);
   }, [lead?.id]);
@@ -116,21 +113,6 @@ export default function LeadDetails({
   const handleActivityFormClose = () => {
     setShowActivityForm(false);
     setEditingActivity(null);
-  };
-
-  const handleGetAiSuggestion = async () => {
-    if (!currentLead) return;
-    setLoadingSuggestion(true);
-    try {
-      const result = await suggestNextAction({ leadId: currentLead.id });
-      setAiSuggestion(result.text);
-      toast.success('AI suggestion generated');
-    } catch (error) {
-      console.error('Error getting AI suggestion:', error);
-      toast.error('Failed to generate AI suggestion');
-    } finally {
-      setLoadingSuggestion(false);
-    }
   };
 
   const handleGetAiSummary = async () => {
@@ -202,11 +184,8 @@ export default function LeadDetails({
 
               {/* ── Overview ── */}
               <TabsContent value="overview" className={TAB_PANE}>
-                <OverviewAiCards
+                <OverviewAiSummary
                   currentLead={currentLead}
-                  aiSuggestion={aiSuggestion}
-                  loadingSuggestion={loadingSuggestion}
-                  onGetSuggestion={handleGetAiSuggestion}
                   aiSummary={aiSummary}
                   loadingSummary={loadingSummary}
                   onGetSummary={handleGetAiSummary}
@@ -216,24 +195,31 @@ export default function LeadDetails({
                   <Card className="border-border">
                     <CardContent className="p-4 space-y-3">
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Contact</p>
-                      {currentLead.customerPhone && (
-                        <div className="flex items-center gap-2">
+                      {currentLead.customerPhone ? (
+                        <a
+                          href={`tel:${phoneHref(currentLead.customerPhone)}`}
+                          className="flex items-center gap-2 min-h-[44px] sm:min-h-0 text-sm text-primary hover:underline font-medium"
+                        >
                           <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <a href={`tel:${phoneHref(currentLead.customerPhone)}`} className="text-sm text-primary hover:underline font-medium">
-                            {formatPhone(currentLead.customerPhone)}
-                          </a>
+                          {formatPhone(currentLead.customerPhone)}
+                        </a>
+                      ) : (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Phone className="h-3.5 w-3.5 shrink-0" /> No phone on file
                         </div>
                       )}
-                      {currentLead.customerEmail && (
-                        <div className="flex items-center gap-2">
+                      {currentLead.customerEmail ? (
+                        <a
+                          href={`mailto:${currentLead.customerEmail}`}
+                          className="flex items-center gap-2 min-h-[44px] sm:min-h-0 min-w-0 text-sm text-primary hover:underline"
+                        >
                           <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <a href={`mailto:${currentLead.customerEmail}`} className="text-sm text-primary hover:underline truncate">
-                            {currentLead.customerEmail}
-                          </a>
+                          <span className="truncate">{currentLead.customerEmail}</span>
+                        </a>
+                      ) : (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Mail className="h-3.5 w-3.5 shrink-0" /> No email on file
                         </div>
-                      )}
-                      {!currentLead.customerPhone && !currentLead.customerEmail && (
-                        <p className="text-sm text-muted-foreground">No contact info available</p>
                       )}
                     </CardContent>
                   </Card>
@@ -255,21 +241,23 @@ export default function LeadDetails({
                   </Card>
                 </div>
 
-                {currentLead.leadDetails && (
-                  <Card className="border-border">
-                    <CardContent className="p-4 space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lead Details</p>
+                <Card className="border-border">
+                  <CardContent className="p-4 space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lead Details</p>
+                    {currentLead.leadDetails ? (
                       <p className="text-sm whitespace-pre-wrap leading-relaxed">{currentLead.leadDetails}</p>
-                    </CardContent>
-                  </Card>
-                )}
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No lead details</p>
+                    )}
+                  </CardContent>
+                </Card>
 
-                {currentLead.lastInteractionDate && (
-                  <Card className="border-border">
-                    <CardContent className="p-4 space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
-                        <MessageSquare className="h-3.5 w-3.5" /> Last Interaction
-                      </p>
+                <Card className="border-border">
+                  <CardContent className="p-4 space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                      <MessageSquare className="h-3.5 w-3.5" /> Last Interaction
+                    </p>
+                    {currentLead.lastInteractionDate ? (
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
@@ -279,9 +267,11 @@ export default function LeadDetails({
                           <Badge variant="outline">{currentLead.daysSinceLastInteraction} days ago</Badge>
                         )}
                       </div>
-                    </CardContent>
-                  </Card>
-                )}
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No interactions yet</p>
+                    )}
+                  </CardContent>
+                </Card>
               </TabsContent>
 
               {/* ── More Info ── */}
@@ -397,71 +387,39 @@ export default function LeadDetails({
   );
 }
 
-/* ── AI cards sub-component to keep the main component lean ── */
-function OverviewAiCards({
+/* ── AI summary card ── */
+function OverviewAiSummary({
   currentLead,
-  aiSuggestion,
-  loadingSuggestion,
-  onGetSuggestion,
   aiSummary,
   loadingSummary,
   onGetSummary,
 }: {
   currentLead: Lead;
-  aiSuggestion: string | null;
-  loadingSuggestion: boolean;
-  onGetSuggestion: () => void;
   aiSummary: string | null;
   loadingSummary: boolean;
   onGetSummary: () => void;
 }) {
-  const showSummary = (currentLead.totalInteractions ?? 0) >= 3;
+  if ((currentLead.totalInteractions ?? 0) < 3) return null;
 
   return (
-    <div className={`grid grid-cols-1 ${showSummary ? 'md:grid-cols-2' : ''} gap-3`}>
-      <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
-            <Sparkles className="h-3.5 w-3.5 text-primary" />
-          </div>
-          <span className="text-sm font-semibold">AI Next Action</span>
+    <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+          <FileText className="h-3.5 w-3.5 text-primary" />
         </div>
-        {!aiSuggestion ? (
-          <Button onClick={onGetSuggestion} disabled={loadingSuggestion} variant="outline" size="sm" className="w-full">
-            {loadingSuggestion ? <Sparkles className="h-3.5 w-3.5 mr-1.5 animate-pulse" /> : <Sparkles className="h-3.5 w-3.5 mr-1.5" />}
-            {loadingSuggestion ? 'Analyzing…' : 'Suggest Next Action'}
-          </Button>
-        ) : (
-          <div className="space-y-2">
-            <p className="text-sm whitespace-pre-wrap leading-relaxed">{aiSuggestion}</p>
-            <Button onClick={onGetSuggestion} disabled={loadingSuggestion} variant="ghost" size="sm" className="w-full text-xs">
-              <RefreshCw className="h-3 w-3 mr-1.5" /> Regenerate
-            </Button>
-          </div>
-        )}
+        <span className="text-sm font-semibold">AI Summary</span>
       </div>
-
-      {showSummary && (
-        <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
-              <FileText className="h-3.5 w-3.5 text-primary" />
-            </div>
-            <span className="text-sm font-semibold">AI Summary</span>
-          </div>
-          {!aiSummary ? (
-            <Button onClick={onGetSummary} disabled={loadingSummary} variant="outline" size="sm" className="w-full">
-              {loadingSummary ? <FileText className="h-3.5 w-3.5 mr-1.5 animate-pulse" /> : <FileText className="h-3.5 w-3.5 mr-1.5" />}
-              {loadingSummary ? 'Generating…' : 'Generate Summary'}
-            </Button>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-sm whitespace-pre-wrap leading-relaxed">{aiSummary}</p>
-              <Button onClick={onGetSummary} disabled={loadingSummary} variant="ghost" size="sm" className="w-full text-xs">
-                <RefreshCw className="h-3 w-3 mr-1.5" /> Regenerate
-              </Button>
-            </div>
-          )}
+      {!aiSummary ? (
+        <Button onClick={onGetSummary} disabled={loadingSummary} variant="outline" size="sm" className="w-full">
+          {loadingSummary ? <FileText className="h-3.5 w-3.5 mr-1.5 animate-pulse" /> : <FileText className="h-3.5 w-3.5 mr-1.5" />}
+          {loadingSummary ? 'Generating…' : 'Generate Summary'}
+        </Button>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-sm whitespace-pre-wrap leading-relaxed">{aiSummary}</p>
+          <Button onClick={onGetSummary} disabled={loadingSummary} variant="ghost" size="sm" className="w-full text-xs">
+            <RefreshCw className="h-3 w-3 mr-1.5" /> Regenerate
+          </Button>
         </div>
       )}
     </div>

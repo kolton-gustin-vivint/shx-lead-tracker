@@ -13,8 +13,7 @@ app/
   page.tsx               the app, gated by Magistrate's SessionProvider
   magistrate-auth/       Magistrate sign-in route
   api/[name]/route.ts    endpoint dispatch — POST /api/<name>
-  api/upload/route.ts    Self-Gen attachment uploads
-  uploads/[...path]/     serves uploaded attachments back to Airtable
+  api/upload/route.ts    Self-Gen attachment uploads (straight into Airtable, 4 MB max)
 src/
   AppRoot.tsx            client entry: error boundary + React Query
   App.tsx                roster/role gating, then the dashboard
@@ -99,10 +98,8 @@ identifying the user.** Until auth exists, keep it behind Vercel's deployment
 protection or run it locally.
 
 Login history lives in Neon; the connection string arrives as `DATABASE_URL`
-from the Neon integration. One thing still needs follow-up on Vercel's
-read-only filesystem: attachment uploads write to `/tmp`, so they need
-Airtable's direct upload endpoint or blob storage. Long paginating endpoints
-can also exceed the function timeout. See `VERIFICATION.md`.
+from the Neon integration. Long paginating endpoints can exceed the
+function timeout. See `VERIFICATION.md`.
 
 ## Manager View (`/manage`)
 

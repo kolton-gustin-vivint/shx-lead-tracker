@@ -25,6 +25,8 @@ export interface OffboardResult {
   /** NEW leads that will be / were returned to the pool. */
   leads: ReclaimLead[];
   reclaimed?: number;
+  /** NEW leads that changed after the list was read, so were left alone. */
+  skipped?: number;
   dateCleanup?: { cleared: number; automationSeen: boolean };
   auditLogId?: string;
 }
@@ -48,8 +50,8 @@ export async function offboardPro(o: { proId: string; dryRun: boolean; actor: { 
   }
 
   // 1. Reclaim (as the script does first).
-  const leadsBefore = reclaimUndoData(leads);
-  const { written, failure: leadFailure } = await writeReclaim(leads, { setAssignmentNeeded: false });
+  const { written, skipped, failure: leadFailure } = await writeReclaim(leads, { setAssignmentNeeded: false, mode: 'offboard', proId: o.proId });
+  const leadsBefore = reclaimUndoData(written);
 
   // 2. Deactivate — only if every lead was reclaimed, so a failure doesn't
   // leave an Inactive Pro still holding NEW leads.
@@ -70,13 +72,14 @@ export async function offboardPro(o: { proId: string; dryRun: boolean; actor: { 
     `Offboard Pro via Manager View${failure ? ' — STOPPED EARLY (error)' : ''}`,
     `Pro: ${p.repId} (${o.proId})`,
     `By: ${o.actor.name} <${o.actor.email}>`,
-    `Reclaimed ${written} of ${leads.length} NEW lead(s)`,
+    `Reclaimed ${written.length} of ${leads.length} NEW lead(s)`,
+    ...(skipped.length ? [`Skipped ${skipped.length} lead(s) that changed after the list was read`] : []),
     deactivated
       ? `Status ${proBefore.status ?? '(blank)'} → Inactive | Daily New Lead Cap ${proBefore.dailyNewLeadCap ?? '(blank)'} → 0 | Active Lead Cap ${proBefore.activeLeadCap ?? '(blank)'} → 0`
       : 'Pro NOT deactivated',
     `UNDO-DATA ${JSON.stringify({
       v: 2, kind: 'offboard', proId: o.proId,
-      leads: leadsBefore.slice(0, written),
+      leads: leadsBefore,
       ...(deactivated ? { before: proBefore, after: proAfter } : {}),
     })}`,
   ].join('\n');
@@ -88,17 +91,18 @@ export async function offboardPro(o: { proId: string; dryRun: boolean; actor: { 
   }
 
   // 4. Clear the re-stamped Date Assigned on the reclaimed leads.
-  const dateCleanup = await clearRestampedDates(leads.slice(0, written).map(r => r.id));
+  const dateCleanup = await clearRestampedDates(written.map(r => r.id));
 
   if (failure) {
     throw new ApiError({
       code: 'INTERNAL',
-      message: `Offboarding stopped: reclaimed ${written} of ${leads.length} lead(s); Pro ${deactivated ? 'was' : 'was NOT'} deactivated. ${failure instanceof Error ? failure.message : String(failure)}${auditLogId ? ` (Audit Log ${auditLogId} has the undo data)` : ''}`,
+      message: `Offboarding stopped: reclaimed ${written.length} of ${leads.length} lead(s); Pro ${deactivated ? 'was' : 'was NOT'} deactivated. ${failure instanceof Error ? failure.message : String(failure)}${auditLogId ? ` (Audit Log ${auditLogId} has the undo data)` : ''}`,
     });
   }
   return {
     status: 'offboarded', pro: { ...info, status: 'Inactive', dailyCap: 0, activeCap: 0 }, leads: leads.map(describeLead),
-    reclaimed: written, dateCleanup, auditLogId,
-    message: `${info.name} is offboarded: ${written} NEW lead(s) returned to the pool, Status Inactive, caps 0.`,
+    reclaimed: written.length, skipped: skipped.length, dateCleanup, auditLogId,
+    message: `${info.name} is offboarded: ${written.length} NEW lead(s) returned to the pool, Status Inactive, caps 0.`
+      + (skipped.length ? ` ${skipped.length} more were skipped because they changed after the list was read.` : ''),
   };
 }

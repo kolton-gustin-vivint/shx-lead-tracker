@@ -34,6 +34,8 @@ export interface ReclaimResult {
   thresholdDays: number;
   leads: ReclaimLead[];
   reclaimed?: number;
+  /** Leads that changed (reassigned, worked or deleted) after the list was read, so were left alone. */
+  skipped?: number;
   /** Leads whose Date Assigned the automation re-stamped and we cleared again. */
   dateCleanup?: { cleared: number; automationSeen: boolean };
   auditLogId?: string;
@@ -55,18 +57,16 @@ export async function leadsToReclaim(mode: ReclaimMode, proId: string, repId: st
     offset = page.hasMore ? page.offset : undefined;
   } while (offset);
 
-  // Exactly the scripts' filters.
-  if (mode !== 'stale') {
-    return rows.filter(r => (r.assignedPro ?? []).includes(proId) && r.status === 'NEW');
-  }
+  return rows.filter(r => isReclaimable(mode, proId, r, now));
+}
+
+/** Exactly the scripts' filters. Also used to re-check a lead right before it is written. */
+export function isReclaimable(mode: ReclaimMode, proId: string, r: Record<string, any>, now: Date): boolean {
+  if (!(r.assignedPro ?? []).includes(proId) || r.status !== 'NEW') return false;
+  if (mode !== 'stale') return true;
   const threshold = new Date(now);
   threshold.setDate(now.getDate() - STALE_THRESHOLD_DAYS);
-  return rows.filter(r =>
-    (r.assignedPro ?? []).includes(proId) &&
-    r.status === 'NEW' &&
-    r.leadType === 'Active' &&
-    !!r.dateAssigned && new Date(r.dateAssigned) < threshold,
-  );
+  return r.leadType === 'Active' && !!r.dateAssigned && new Date(r.dateAssigned) < threshold;
 }
 
 export function describeLead(r: Record<string, any>): ReclaimLead {
@@ -86,31 +86,60 @@ export function reclaimUndoData(leads: Record<string, any>[]) {
   }));
 }
 
-/** The scripts' reclaim write, 10 per request. Stops at the first failed chunk. */
-export async function writeReclaim(leads: Record<string, any>[], { setAssignmentNeeded }: { setAssignmentNeeded: boolean }): Promise<{ written: number; failure: unknown }> {
-  let written = 0;
+/**
+ * The scripts' reclaim write, 10 per request. Stops at the first failed chunk.
+ *
+ * Each chunk is re-read right before it is written, and any lead that is no
+ * longer reclaimable (reassigned, worked, closed, deleted) is skipped rather
+ * than overwritten. This narrows the read-to-write gap from the whole run to one
+ * round trip; Airtable can't make it atomic. `written` holds the fresh
+ * pre-write records, so it is also the right source for undo data.
+ */
+export async function writeReclaim(
+  leads: Record<string, any>[],
+  { setAssignmentNeeded, mode, proId }: { setAssignmentNeeded: boolean; mode: ReclaimMode; proId: string },
+): Promise<{ written: Record<string, any>[]; skipped: Record<string, any>[]; failure: unknown }> {
+  const written: Record<string, any>[] = [];
+  const skipped: Record<string, any>[] = [];
   for (let i = 0; i < leads.length; i += 10) {
     const chunk = leads.slice(i, i + 10);
     try {
-      await NisLeads.updateMany(chunk.map(r => ({
+      const page = await NisLeads.findAll({ filters: { id: { in: chunk.map(r => r.id) } as any }, fields: FIELDS, limit: 100 });
+      const fresh = new Map((page.records as any[]).map(r => [r.id, r]));
+      const now = new Date();
+      const keep: Record<string, any>[] = [];
+      for (const r of chunk) {
+        const f = fresh.get(r.id);
+        if (f && isReclaimable(mode, proId, f, now)) keep.push(f);
+        else skipped.push(r);
+      }
+      if (keep.length === 0) continue;
+      await NisLeads.updateMany(keep.map(r => ({
         id: r.id,
         record: {
           assignedPro: [], originalAssignedPro: null, dateAssigned: null, assignmentStatus: null, closeReason: null, leadType: 'Ready to Assign',
           ...(setAssignmentNeeded ? { assignmentNeeded: true } : {}),
         },
       })));
-      written += chunk.length;
-    } catch (failure) { return { written, failure }; }
+      written.push(...keep);
+    } catch (failure) { return { written, skipped, failure }; }
   }
-  return { written, failure: null };
+  return { written, skipped, failure: null };
 }
 
 /** The automation re-stamps Date Assigned after Assigned Pro is cleared; clear it again once it has. */
 export async function clearRestampedDates(ids: string[]): Promise<{ cleared: number; automationSeen: boolean }> {
   if (ids.length === 0) return { cleared: 0, automationSeen: false };
   const { allStamped } = await waitForAssignedProAutomation(ids, (_id, now) => !!now?.dateAssigned);
-  await NisLeads.updateMany(ids.map(id => ({ id, record: { dateAssigned: null } })));
-  return { cleared: ids.length, automationSeen: allStamped };
+
+  // The wait can take a while; a lead assigned to someone else meanwhile keeps its new date.
+  const stillFree: string[] = [];
+  for (let i = 0; i < ids.length; i += 100) {
+    const page = await NisLeads.findAll({ filters: { id: { in: ids.slice(i, i + 100) } as any }, fields: ['assignedPro'], limit: 100 });
+    for (const r of page.records as any[]) if (!(r.assignedPro ?? []).length) stillFree.push(r.id);
+  }
+  await NisLeads.updateMany(stillFree.map(id => ({ id, record: { dateAssigned: null } })));
+  return { cleared: stillFree.length, automationSeen: allStamped };
 }
 
 export async function reclaimLeadsFor(o: {
@@ -141,17 +170,18 @@ export async function reclaimLeadsFor(o: {
       : `Would reclaim ${stale.length} lead(s) assigned more than ${STALE_THRESHOLD_DAYS} days ago that are still NEW.` };
   }
 
-  // 1. The script's write.
-  const before = reclaimUndoData(stale);
-  const { written, failure } = await writeReclaim(stale, { setAssignmentNeeded: force });
+  // 1. The script's write. Leads that changed since the list was read are skipped.
+  const { written, skipped, failure } = await writeReclaim(stale, { setAssignmentNeeded: force, mode: o.mode, proId: o.proId });
+  const before = reclaimUndoData(written);
 
   // 2. Audit log straight away, so the undo data exists even if cleanup fails.
   const details = [
     `${action} via Manager View${failure ? ' — STOPPED EARLY (error)' : ''}`,
     `Pro: ${p.repId} (${o.proId})`,
     `By: ${o.actor.name} <${o.actor.email}>`,
-    force ? `Force reclaimed ${written} lead(s): every NEW lead, any age` : `Reclaimed ${written} lead(s): Status NEW, Lead Type Active, assigned more than ${STALE_THRESHOLD_DAYS} days ago`,
-    `UNDO-DATA ${JSON.stringify({ v: 2, kind: 'reclaim', proId: o.proId, leads: before.slice(0, written) })}`,
+    force ? `Force reclaimed ${written.length} lead(s): every NEW lead, any age` : `Reclaimed ${written.length} lead(s): Status NEW, Lead Type Active, assigned more than ${STALE_THRESHOLD_DAYS} days ago`,
+    ...(skipped.length ? [`Skipped ${skipped.length} lead(s) that changed after the list was read`] : []),
+    `UNDO-DATA ${JSON.stringify({ v: 2, kind: 'reclaim', proId: o.proId, leads: before })}`,
   ].join('\n');
   let auditLogId: string | undefined;
   try {
@@ -160,15 +190,16 @@ export async function reclaimLeadsFor(o: {
     console.error('[reclaimLeadsFor] audit log write failed', err, details);
   }
   if (failure) {
-    throw new ApiError({ code: 'INTERNAL', message: `Stopped after reclaiming ${written} of ${stale.length}: ${failure instanceof Error ? failure.message : String(failure)}${auditLogId ? ` (Audit Log ${auditLogId} has the undo data)` : ''}` });
+    throw new ApiError({ code: 'INTERNAL', message: `Stopped after reclaiming ${written.length} of ${stale.length}: ${failure instanceof Error ? failure.message : String(failure)}${auditLogId ? ` (Audit Log ${auditLogId} has the undo data)` : ''}` });
   }
 
   // 3. The automation re-stamps Date Assigned after Assigned Pro is cleared; clear it again.
-  const dateCleanup = await clearRestampedDates(stale.map(r => r.id));
+  const dateCleanup = await clearRestampedDates(written.map(r => r.id));
 
   return {
-    ...base, status: 'reclaimed', reclaimed: written, auditLogId,
+    ...base, status: 'reclaimed', reclaimed: written.length, skipped: skipped.length, auditLogId,
     dateCleanup,
-    message: `Reclaimed ${written} lead(s) from ${proInfo.name}. They're back in the pool as Ready to Assign.`,
+    message: `Reclaimed ${written.length} lead(s) from ${proInfo.name}. They're back in the pool as Ready to Assign.`
+      + (skipped.length ? ` ${skipped.length} more were skipped because they changed after the list was read.` : ''),
   };
 }

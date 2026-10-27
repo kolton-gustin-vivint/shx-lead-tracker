@@ -17,7 +17,7 @@ What was replaced and where the seams are.
 | `zitejs/integrations` table clients + record types | `server/airtable/index.ts` + `schema.generated.ts` (generated from the live base) |
 | `zitejs/api` typed client | `src/lib/api.ts` (types inferred from `server/api`) |
 | `zitejs/auth` `useAuth`, `loginWithRedirect`, `logout` | nothing — the app has no sign-in (see below) |
-| `zitejs/upload` `uploadFile` | `src/lib/upload.ts` + `server/lib/upload.ts` (local disk, public URL) |
+| `zitejs/upload` `uploadFile` | `src/lib/upload.ts` + `app/api/upload/route.ts` (bytes go straight into the record's Airtable cell) |
 | `zitejs/db` (`zite.loginEvents`, `zite.sql`) | `server/lib/db.ts` — SQLite at first, now Neon Postgres |
 | `context.user` enrichment | unchanged: `server/lib/currentUser.ts` still copies the SHX Team row onto `context.user` |
 | `ZITE_OPENAI_ACCESS_TOKEN` | `OPENAI_API_KEY` (old name still read as a fallback) |
@@ -37,9 +37,11 @@ Files moved out of `src/` because they only run on the server:
   the table's default order. `refreshAdminStats` assumes the first page of NIS
   Leads is newest-first when counting raw intake. If that count looks wrong,
   add `sort: [{ field: 'dateAdded', direction: 'desc' }]` to that query.
-- **Attachment URLs.** Uploads are stored under `UPLOAD_DIR` and must be public
-  long enough for Airtable to fetch them. Behind a VPN-only host, use an object
-  store (S3/GCS) in `server/lib/upload.ts` instead.
+- **Attachments.** Files are uploaded straight into the record's Attachments cell
+  through Airtable's upload endpoint, so nothing is hosted here. Airtable caps
+  files at 5 MB and Vercel caps request bodies at 4.5 MB, so the route allows
+  4 MB per file. The record has to exist first: the Self-Gen forms save, then
+  upload, and show a retry button if an upload fails.
 - **Login history.** Login events now go to a `login_events` table in Neon
   (`DATABASE_URL`). They began in SQLite, which could not work on Vercel — each
   serverless instance had its own copy under `/tmp`. The old platform DB's
@@ -55,7 +57,7 @@ and the whole dashboard UI. What changed is the shell around them.
 | Vite dev server + `index.html` + `src/main.tsx` | Next App Router: `app/layout.tsx`, `app/page.tsx` |
 | Express app (`server/app.ts`, `server/index.ts`, `api/index.ts`) | Route handlers under `app/api/` |
 | Express dispatcher for `POST /api/:name` | `app/api/[name]/route.ts` (same contract) |
-| `express.static` for `/uploads` | `app/uploads/[...path]/route.ts` |
+| `express.static` for `/uploads` | removed — attachments are no longer hosted by the app |
 | Home-grown email sign-in (`server/lib/auth.ts`, `src/components/LoginScreen.tsx`) | removed — no sign-in |
 | Signed session cookie (`server/lib/session.ts`) | `session.ts` now builds `context.user` from `APP_USER_EMAIL` |
 | `vercel.json` rewrites to one Express function | none — Next on Vercel is zero-config |

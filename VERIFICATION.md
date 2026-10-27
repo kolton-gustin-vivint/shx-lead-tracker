@@ -7,7 +7,7 @@ Updated 2026-09-29 for the Next.js migration. The endpoint layer was
 re-verified against the live base afterwards: profile, leads, closed leads,
 activities, reps, status options, admin stats, self-gen, compensation and the
 login report all returned correct data; input validation returned 400; unknown
-endpoints 404; uploads stored and served; path traversal blocked.
+endpoints 404.
 
 **The app has no authentication.** Every request is served as `APP_USER_EMAIL`.
 Treat that as the top item on this list — nothing else here matters if the app
@@ -19,12 +19,12 @@ logged there with the table, field and message.
 ## 1. Most likely to fail
 
 - [ ] **Self-Gen form / edit dialog with attachments**
-  Uploads return a `http://localhost:3001/uploads/...` URL. Airtable cannot
-  fetch localhost, so attaching a file fails locally. Test Self-Gen entries
-  **without** files locally; attachments can only be verified once
-  `PUBLIC_URL` is publicly reachable (or uploads move to S3/Supabase Storage).
+  Files upload straight into the record's Attachments cell (4 MB per file).
+  Not yet tested against the live base. Check: create an activity with a file;
+  edit one to add a file and remove another (including the last one); and force
+  a failure to see the "Retry upload" banner.
 
-- [ ] **Lead Details → AI Summary / Suggest Next Action**
+- [ ] **Lead Details → AI Summary**
   Requires `OPENAI_API_KEY` in `.env`. The code calls model `gpt-5.4`
   (`server/lib/openai.ts`). Confirm the key has access to that model or change
   the model id.
@@ -83,10 +83,7 @@ logged there with the table, field and message.
   2026-09-29: a manager-view `getLeadStats` call ran past 7 minutes locally, so
   it will exceed any Vercel function timeout. Read counts from Airtable
   rollups/Control Panel or precompute on a cron.
-- Attachments on Vercel: `/tmp` is not public or persistent. Use Airtable's
-  direct upload endpoint or Vercel Blob.
 - Import old `LoginEvents` rows into Neon if Zite can still export them.
-- Persist `UPLOAD_DIR`, or move attachments off local disk.
 
 See also `MIGRATION.md` (what replaced what) and `README.md` (running and
 deploying).

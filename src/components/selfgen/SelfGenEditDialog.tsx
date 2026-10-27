@@ -8,10 +8,10 @@ import { Checkbox } from '@project/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@project/components/ui/select';
 import { Badge } from '@project/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@project/components/ui/alert-dialog';
-import { Upload, X, Loader2, ExternalLink, Trash2 } from 'lucide-react';
+import { Upload, X, Loader2, ExternalLink, Trash2, AlertTriangle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { updateSelfGenActivity, deleteSelfGenActivity } from '@/lib/api';
-import { uploadFile } from '@/lib/upload';
+import { uploadFiles, checkUploadSize, type PendingFile } from '@/lib/upload';
 import { TIME_SLOTS, ACTIVITY_TYPES } from './constants';
 import type { SelfGenActivity } from './types';
 
@@ -34,7 +34,10 @@ export default function SelfGenEditDialog({ activity, open, onClose, onSaved, al
   const [notes, setNotes] = useState(activity.notes || '');
   const [completed, setCompleted] = useState(activity.completed);
   const [existingAttachments, setExistingAttachments] = useState(activity.attachments || []);
-  const [newFiles, setNewFiles] = useState<{ file: File; name: string }[]>([]);
+  const [newFiles, setNewFiles] = useState<PendingFile[]>([]);
+  // Set when the record saved but some files didn't upload; drives the retry banner.
+  const [failedFiles, setFailedFiles] = useState<PendingFile[]>([]);
+  const [retrying, setRetrying] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -52,7 +55,12 @@ export default function SelfGenEditDialog({ activity, open, onClose, onSaved, al
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    setNewFiles(prev => [...prev, ...files.map(f => ({ file: f, name: f.name }))]);
+    const accepted = files.filter(f => {
+      const problem = checkUploadSize(f);
+      if (problem) toast.error(problem);
+      return !problem;
+    });
+    setNewFiles(prev => [...prev, ...accepted.map(f => ({ file: f, name: f.name }))]);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -63,21 +71,9 @@ export default function SelfGenEditDialog({ activity, open, onClose, onSaved, al
     }
     setSaving(true);
     try {
-      // Upload new files
-      let allAttachments: { url: string; filename: string }[] = existingAttachments.map(a => ({
-        url: a.url,
-        filename: a.filename,
-      }));
-
-      if (newFiles.length > 0) {
-        const uploaded = await Promise.all(
-          newFiles.map(f => uploadFile({ data: f.file, filename: f.name }))
-        );
-        allAttachments = [
-          ...allAttachments,
-          ...uploaded.map((u, i) => ({ url: u.fileUrl, filename: newFiles[i].name })),
-        ];
-      }
+      // Only touch the attachments cell when something was removed; new files are added after the save.
+      const original = activity.attachments || [];
+      const removedAny = existingAttachments.length !== original.length;
 
       await updateSelfGenActivity({
         id: activity.id,
@@ -86,8 +82,20 @@ export default function SelfGenEditDialog({ activity, open, onClose, onSaved, al
         activityType: selectedTypes,
         notes,
         completed,
-        attachments: allAttachments.length > 0 ? allAttachments : undefined,
+        keepAttachmentIds: removedAny
+          ? existingAttachments.map(a => a.id).filter((id): id is string => !!id)
+          : undefined,
       });
+
+      const failed = newFiles.length > 0 ? await uploadFiles(activity.id, newFiles) : [];
+      if (failed.length > 0) {
+        // The edits are saved; keep the dialog open so the failed files can be retried.
+        setNewFiles([]);
+        setFailedFiles(failed);
+        toast.error(`Activity updated, but ${failed.length} attachment(s) failed to upload`);
+        onSaved();
+        return;
+      }
 
       toast.success('Activity updated');
       onSaved();
@@ -97,6 +105,20 @@ export default function SelfGenEditDialog({ activity, open, onClose, onSaved, al
       toast.error('Failed to update activity');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleRetry = async () => {
+    setRetrying(true);
+    const failed = await uploadFiles(activity.id, failedFiles);
+    setRetrying(false);
+    setFailedFiles(failed);
+    onSaved();
+    if (failed.length > 0) {
+      toast.error('Some attachments still failed to upload');
+    } else {
+      toast.success('Attachments uploaded');
+      onClose();
     }
   };
 
@@ -161,6 +183,21 @@ export default function SelfGenEditDialog({ activity, open, onClose, onSaved, al
           {/* Attachments */}
           <div className="space-y-1.5">
             <Label className="text-xs font-medium text-muted-foreground">Attachments</Label>
+            {failedFiles.length > 0 && (
+              <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2.5">
+                <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0 text-xs">
+                  <p className="font-medium text-sm">Your changes were saved, but these didn't upload</p>
+                  <p className="text-muted-foreground mt-0.5 break-words">{failedFiles.map(f => f.name).join(', ')}</p>
+                </div>
+                <Button size="sm" variant="outline" onClick={handleRetry} disabled={retrying}>
+                  {retrying
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                    : <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
+                  Retry upload
+                </Button>
+              </div>
+            )}
             {existingAttachments.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-1.5">
                 {existingAttachments.map((a, i) => (

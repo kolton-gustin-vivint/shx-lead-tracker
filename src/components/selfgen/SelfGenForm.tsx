@@ -7,10 +7,10 @@ import { Textarea } from '@project/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel, SelectSeparator } from '@project/components/ui/select';
 import { Badge } from '@project/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@project/components/ui/collapsible';
-import { Plus, Upload, X, Loader2, ChevronDown } from 'lucide-react';
+import { Plus, Upload, X, Loader2, ChevronDown, AlertTriangle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { createSelfGenActivity } from '@/lib/api';
-import { uploadFile } from '@/lib/upload';
+import { uploadFiles, checkUploadSize, type PendingFile } from '@/lib/upload';
 import { TIME_SLOTS, ACTIVITY_TYPES } from './constants';
 
 interface Pro {
@@ -33,7 +33,9 @@ export default function SelfGenForm({ onCreated, pros }: SelfGenFormProps) {
   const [timeSlot, setTimeSlot] = useState('');
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
-  const [files, setFiles] = useState<{ file: File; name: string }[]>([]);
+  const [files, setFiles] = useState<PendingFile[]>([]);
+  const [retryQueue, setRetryQueue] = useState<{ recordId: string; files: PendingFile[] }[]>([]);
+  const [retrying, setRetrying] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [selectedProId, setSelectedProId] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -52,8 +54,13 @@ export default function SelfGenForm({ onCreated, pros }: SelfGenFormProps) {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newFiles = Array.from(e.target.files || []);
-    setFiles(prev => [...prev, ...newFiles.map(f => ({ file: f, name: f.name }))]);
+    const picked = Array.from(e.target.files || []);
+    const accepted = picked.filter(f => {
+      const problem = checkUploadSize(f);
+      if (problem) toast.error(problem);
+      return !problem;
+    });
+    setFiles(prev => [...prev, ...accepted.map(f => ({ file: f, name: f.name }))]);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -72,24 +79,22 @@ export default function SelfGenForm({ onCreated, pros }: SelfGenFormProps) {
     }
     setSubmitting(true);
     try {
-      let attachments: { url: string; filename: string }[] | undefined;
-      if (files.length > 0) {
-        const uploaded = await Promise.all(
-          files.map(f => uploadFile({ data: f.file, filename: f.name }))
-        );
-        attachments = uploaded.map((u, i) => ({ url: u.fileUrl, filename: files[i].name }));
-      }
-
-      await createSelfGenActivity({
+      const created = await createSelfGenActivity({
         dateOfActivity: new Date(date + 'T00:00:00').toISOString(),
         timeSlot,
         activityType: selectedTypes,
         notes: notes || undefined,
-        attachments,
         proId: showProPicker ? selectedProId : undefined,
       });
 
-      toast.success('Activity logged!');
+      // The record exists now, so files can be attached to it.
+      const failed = files.length > 0 ? await uploadFiles(created.id, files) : [];
+      if (failed.length > 0) {
+        setRetryQueue(prev => [...prev, { recordId: created.id, files: failed }]);
+        toast.error(`Activity logged, but ${failed.length} attachment(s) failed to upload`);
+      } else {
+        toast.success('Activity logged!');
+      }
       setTimeSlot('');
       setSelectedTypes([]);
       setNotes('');
@@ -105,9 +110,48 @@ export default function SelfGenForm({ onCreated, pros }: SelfGenFormProps) {
     }
   };
 
+  const handleRetry = async () => {
+    setRetrying(true);
+    const remaining: { recordId: string; files: PendingFile[] }[] = [];
+    for (const group of retryQueue) {
+      const failed = await uploadFiles(group.recordId, group.files);
+      if (failed.length > 0) remaining.push({ recordId: group.recordId, files: failed });
+    }
+    setRetryQueue(remaining);
+    setRetrying(false);
+    onCreated();
+    if (remaining.length > 0) toast.error('Some attachments still failed to upload');
+    else toast.success('Attachments uploaded');
+  };
+
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <Card className="shadow-premium overflow-hidden">
+        {retryQueue.length > 0 && (
+          <div className="flex items-start gap-3 px-5 py-3 border-b border-destructive/30 bg-destructive/5">
+            <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0 text-sm">
+              <p className="font-medium">Activity logged, but some attachments didn't upload</p>
+              <p className="text-xs text-muted-foreground mt-0.5 break-words">
+                {retryQueue.flatMap(q => q.files).map(f => f.name).join(', ')}
+              </p>
+            </div>
+            <Button size="sm" variant="outline" onClick={handleRetry} disabled={retrying}>
+              {retrying
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                : <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
+              Retry upload
+            </Button>
+            <button
+              onClick={() => setRetryQueue([])}
+              disabled={retrying}
+              aria-label="Dismiss"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
         <CollapsibleTrigger asChild>
           <button className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-muted/30 transition-colors">
             <div className="flex items-center gap-2.5">

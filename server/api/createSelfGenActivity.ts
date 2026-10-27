@@ -11,10 +11,6 @@ export default createEndpoint({
     timeSlot: z.string(),
     activityType: z.array(z.string()).min(1).max(2),
     notes: z.string().optional(),
-    attachments: z.array(z.object({
-      url: z.string(),
-      filename: z.string(),
-    })).optional(),
     proId: z.string().optional(),
   }),
   outputSchema: z.any(),
@@ -32,13 +28,6 @@ export default createEndpoint({
       notes: input.notes,
       completed: false,
     };
-
-    if (input.attachments && input.attachments.length > 0) {
-      record.attachments = input.attachments.map(a => ({
-        url: a.url,
-        filename: a.filename,
-      }));
-    }
 
     const created = await SelfGenTime.create({ record });
     return {

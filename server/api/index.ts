@@ -18,7 +18,6 @@ import getSelfGenActivities from './getSelfGenActivities';
 import getStatusOptions from './getStatusOptions';
 import logAuditEvent from './logAuditEvent';
 import recordLogin from './recordLogin';
-import suggestNextAction from './suggestNextAction';
 import updateActivity from './updateActivity';
 import updateLead from './updateLead';
 import updateSelfGenActivity from './updateSelfGenActivity';
@@ -83,7 +82,6 @@ export const endpoints = {
   getStatusOptions,
   logAuditEvent,
   recordLogin,
-  suggestNextAction,
   updateActivity,
   updateLead,
   updateSelfGenActivity,

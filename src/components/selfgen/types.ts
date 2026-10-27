@@ -8,6 +8,6 @@ export interface SelfGenActivity {
   activityType?: string[];
   completed: boolean;
   notes?: string;
-  attachments?: { filename: string; url: string }[];
+  attachments?: { id?: string; filename: string; url: string }[];
   dateCreated?: any;
 }

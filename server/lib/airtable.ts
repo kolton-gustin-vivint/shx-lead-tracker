@@ -19,6 +19,7 @@ import { env } from './env';
 import { ALL_TABLES, BASE_ID, type FieldDef, type TableDef } from '../airtable/schema.generated';
 
 const API_ROOT = 'https://api.airtable.com/v0';
+const CONTENT_ROOT = 'https://content.airtable.com/v0';
 const baseId = env.airtableBaseId || BASE_ID;
 const tablesById = new Map(ALL_TABLES.map(t => [t.id, t]));
 
@@ -57,9 +58,17 @@ class RateLimiter {
 
 const limiter = new RateLimiter(5, 1000);
 
-async function request<T>(method: string, path: string, body?: unknown, attempt = 0): Promise<T> {
+interface RequestOptions {
+  attempt?: number;
+  root?: string;
+  /** Set false for non-idempotent writes, where a retry after a 5xx could duplicate the write. */
+  retryServerErrors?: boolean;
+}
+
+async function request<T>(method: string, path: string, body?: unknown, opts: RequestOptions = {}): Promise<T> {
+  const { attempt = 0, root = API_ROOT, retryServerErrors = true } = opts;
   await limiter.acquire();
-  const res = await fetch(`${API_ROOT}/${baseId}/${path}`, {
+  const res = await fetch(`${root}/${baseId}/${path}`, {
     method,
     headers: {
       Authorization: `Bearer ${env.airtableApiKey}`,
@@ -86,13 +95,35 @@ async function request<T>(method: string, path: string, body?: unknown, attempt 
     /* plain-text error body */
   }
 
-  const retryable = res.status === 429 || res.status >= 500;
+  const retryable = res.status === 429 || (retryServerErrors && res.status >= 500);
   if (retryable && attempt < 3) {
     const delay = res.status === 429 ? 2000 * (attempt + 1) : 500 * 2 ** attempt;
     await new Promise(r => setTimeout(r, delay));
-    return request<T>(method, path, body, attempt + 1);
+    return request<T>(method, path, body, { ...opts, attempt: attempt + 1 });
   }
   throw new AirtableError(res.status, `Airtable ${method} ${path} failed (${res.status}): ${message}`, type);
+}
+
+/**
+ * Uploads file bytes straight into an attachment cell (Airtable caps this at
+ * 5 MB per file). The record must already exist. Server errors are not
+ * retried: a 5xx can arrive after the file was stored, and a retry would
+ * attach it twice.
+ */
+export async function uploadAttachment(options: {
+  recordId: string;
+  /** Attachment field id or name. */
+  field: string;
+  filename: string;
+  contentType: string;
+  data: Buffer;
+}): Promise<void> {
+  await request(
+    'POST',
+    `${encodeURIComponent(options.recordId)}/${encodeURIComponent(options.field)}/uploadAttachment`,
+    { contentType: options.contentType, filename: options.filename, file: options.data.toString('base64') },
+    { root: CONTENT_ROOT, retryServerErrors: false },
+  );
 }
 
 // ── Public option / result types ────────────────────────────────────────────
